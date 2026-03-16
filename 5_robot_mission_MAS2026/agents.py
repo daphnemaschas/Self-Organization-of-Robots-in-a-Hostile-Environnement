@@ -56,6 +56,17 @@ class GreenAgent(RobotAgent):
         if empty_cells:
             new_position = self.random.choice(empty_cells)
             self.model.grid.move_agent(self, new_position)
+    
+    def collect_green_waste(self):
+        """Collect 1 green waste from neighboring cells."""
+        neighborhood = self.model.grid.get_neighborhood(
+            self.pos, moore=True, include_center=False
+        )
+        for cell in neighborhood:
+            if cell in self.model.green_waste_cell and self.model.green_waste_cells[cell] > 0:
+                self.model.green_waste_cells[cell] -= 1
+                self.green_waste += 1
+                break
 
     def deliberate(self, knowledge):
         """Implementation of green waste collection and transformation logic."""
