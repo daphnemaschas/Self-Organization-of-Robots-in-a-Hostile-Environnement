@@ -145,7 +145,11 @@ class GreenAgent(RobotAgent):
 
 class YellowAgent(RobotAgent):
     """Robot restricted to zones Z1 and Z2 for yellow waste transformation."""
-
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+        self.yellow_waste = 0
+        self.red_waste = 0
+    
     def deliberate(self, knowledge):
         """Implementation of yellow waste collection and transformation logic."""
         # TODO: Logic for picking up 2 yellow wastes and transforming to red
