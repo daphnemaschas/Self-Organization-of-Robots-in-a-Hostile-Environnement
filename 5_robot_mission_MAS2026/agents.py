@@ -71,17 +71,9 @@ class GreenAgent(RobotAgent):
             self.pos, moore=True, include_center=False
         )
         
-        z1_cells = []
-        for cell in possible_steps:
-            contents = self.model.grid.get_cell_list_contents(cell)
-            for obj in contents:
-                if hasattr(obj, 'radioactivity') and 0 <= obj.radioactivity < 0.33:
-                    z1_cells.append(cell)
-
-
-        empty_cells = [cell for cell in possible_steps if self.model.grid.is_cell_empty(cell)]
-        if empty_cells:
-            new_position = self.random.choice(empty_cells)
+        z1_cells = [cell for cell in possible_steps if self.get_zone(cell) == "z1" and self.model.grid.is_cell_empty(cell)]
+        if z1_cells:
+            new_position = self.random.choice(z1_cells)
             self.model.grid.move_agent(self, new_position)
     
     def collect_waste(self):
