@@ -19,11 +19,12 @@ class RobotMission(mesa.Model):
         width (int): Grid width.
         height (int): Grid height.
     """
-    def __init__(self, width=15, height=10, initial_green_waste=10):
+    def __init__(self, width=15, height=10, initial_green_waste=10, n_green_robots=2, n_yellow_robots=2, n_red_robots=2):
         super().__init__()
         self.width = width
         self.height = height
         self.grid = mesa.space.MultiGrid(width, height, torus=False)
+        self.message_board = [] # Step 2: Communication
 
         # Define zone boundaries
         z1_end = width // 3
@@ -57,8 +58,13 @@ class RobotMission(mesa.Model):
             waste = Waste(self, 'green')
             self.grid.place_agent(waste, (x, y))
 
-        # Place robots
-        self.place_robots(z1_end, z2_end)
+        # Place all robots
+        for _ in range(n_green_robots):
+            self.add_robot(GreenAgent, (random.randrange(z1_end), random.randrange(self.height)))
+        for _ in range(n_yellow_robots):
+            self.add_robot(YellowAgent, (random.randrange(z1_end, z2_end), random.randrange(self.height)))
+        for _ in range(n_red_robots):
+            self.add_robot(RedAgent, (random.randrange(z2_end, self.width), random.randrange(self.height)))
 
     def place_robots(self, z1_end, z2_end):
         # Example setup: 2 of each robot
@@ -75,26 +81,25 @@ class RobotMission(mesa.Model):
         self.agents.shuffle_do("step")
 
     def do(self, agent, action):
-        """Processes an agent's action and returns percepts.
-        
-        Args:
-            agent (RobotAgent): The agent acting.
-            action (dict or str): Description of the action.
-        
-        Returns:
-            dict: Percepts about adjacent tiles and content.
-        """
+        """Processes an agent's action and returns percepts."""
         if action:
-            self.execute_action(agent, action)
+            if action[0] == "post_message":
+                self.message_board.append(action[1])
+            elif action[0] == "read_messages":
+                pass # Already available via agent.model.message_board
+            else:
+                self.execute_action(agent, action)
         
         # Return percepts: current tile and neighbors
         neighbors = self.grid.get_neighborhood(agent.pos, moore=True, include_center=True)
         percepts = {}
         for pos in neighbors:
             cell_contents = self.grid.get_cell_list_contents(pos)
-            percepts[pos] = [type(obj).__name__ for obj in cell_contents]
+            percepts[pos] = []
             # Include more details if it's a Waste or Radioactivity
             for obj in cell_contents:
+                percepts[pos].append(f"type_{type(obj).__name__}")
+                percepts[pos].append(f"id_{obj.unique_id}")
                 if isinstance(obj, Waste):
                     percepts[pos].append(f"waste_{obj.waste_type}")
                 if isinstance(obj, RadioactivitySource):
@@ -158,7 +163,7 @@ class RobotMission(mesa.Model):
         # Remove ingredients and add new product to inventory
         agent.knowledge['inventory'] = [] # Simplified: consume all
         new_type = "yellow" if isinstance(agent, GreenAgent) else "red"
-        new_waste = Waste(self.next_id(), self, new_type)
+        new_waste = Waste(self, new_type)
         # Note: the new_waste is in inventory, not on grid
         agent.knowledge['inventory'].append(new_waste)
 

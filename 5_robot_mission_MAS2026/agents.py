@@ -3,10 +3,11 @@ Group 5
 Date: 2026-03-16
 Members: Associate 1, Gemini CLI
 
-This module defines the robot agents for the mission.
+This module defines the robot agents with communication capabilities (Step 2).
 """
 
 import mesa
+import random
 
 class RobotAgent(mesa.Agent):
     """Base class for all robot agents."""
@@ -19,140 +20,145 @@ class RobotAgent(mesa.Agent):
         }
 
     def step(self):
-        """Standard Mesa step calling the specific agent logic."""
         self.step_agent()
 
     def step_agent(self):
-        """Procedural loop: percepts, deliberate, do."""
-        # The first call to do(None) gets initial percepts
+        # 1. Get percepts
         percepts = self.model.do(self, None)
-        self.update_knowledge(percepts)
+        self.knowledge['last_percepts'] = percepts
         
+        # 2. Deliberate
         action = self.deliberate(self.knowledge)
         
-        # Execute action and get new percepts for the next step
+        # 3. Act and update
         new_percepts = self.model.do(self, action)
-        self.update_knowledge(new_percepts)
-
-    def update_knowledge(self, percepts):
-        """Updates the agent's internal state based on environmental feedback."""
-        self.knowledge['last_percepts'] = percepts
+        self.knowledge['last_percepts'] = new_percepts
 
     def deliberate(self, knowledge):
-        """Reasoning step to choose the next action."""
         raise NotImplementedError
 
-
-import random
+    def get_pos_id(self, percepts, pos, obj_type, detail=None):
+        """Helper to find an object's ID in percepts."""
+        contents = percepts.get(pos, [])
+        found_id = None
+        is_correct_type = False
+        
+        # Percepts are formatted as ["type_Waste", "id_10", "waste_green", ...]
+        # We need to find the ID that follows the correct type and detail
+        for i, item in enumerate(contents):
+            if f"type_{obj_type}" == item:
+                # Look ahead for ID
+                if i + 1 < len(contents) and contents[i+1].startswith("id_"):
+                    potential_id = int(contents[i+1].split("_")[1])
+                    # Check detail if provided
+                    if detail:
+                        if detail in contents:
+                            return potential_id
+                    else:
+                        return potential_id
+        return None
 
 class GreenAgent(RobotAgent):
-    """Robot restricted to zone Z1 for green waste transformation."""
-
     def deliberate(self, knowledge):
         percepts = knowledge['last_percepts']
         inventory = knowledge['inventory']
-
-        # 1. Transformation: if holding 2 green, transform to yellow
-        green_wastes = [w for w in inventory if w.waste_type == "green"]
-        if len(green_wastes) >= 2:
+        
+        # 1. If 2 green -> Transform
+        if len([w for w in inventory if w.waste_type == "green"]) >= 2:
             return ("transform",)
 
-        # 2. Delivery: if holding 1 yellow, move east and drop at boundary
+        # 2. If 1 yellow -> Move to border and Drop + Notify
         yellow_wastes = [w for w in inventory if w.waste_type == "yellow"]
         if yellow_wastes:
-            # Move towards east as much as possible (boundary of Z1)
-            # Find the max X in the current percepts that is zone 1
-            z1_positions = [pos for pos, contents in percepts.items() if any("zone_1" in c for c in contents)]
-            if z1_positions:
-                target_pos = max(z1_positions, key=lambda p: p[0])
-                if self.pos == target_pos:
+            # Find max x in zone 1
+            z1_pos = [p for p, c in percepts.items() if any("zone_1" in item for item in c)]
+            if z1_pos:
+                target = max(z1_pos, key=lambda p: p[0])
+                if self.pos == target:
+                    # Notify others before dropping (Step 2: Communication)
+                    self.model.do(self, ("post_message", {"type": "waste_ready", "waste": "yellow", "pos": self.pos}))
                     return ("drop",)
-                return ("move", target_pos)
+                return ("move", target)
 
-        # 3. Collection: if green waste on current tile, pick up
-        current_cell_contents = percepts.get(self.pos, [])
-        green_waste_id = next((int(c.split('_')[1]) for c in current_cell_contents if "Waste" in c and "green" in c), None)
-        if green_waste_id is not None and len(green_wastes) < 2:
-            return ("pick_up", green_waste_id)
-
-        # 4. Search: move to a neighbor that has green waste, or move randomly
-        for pos, contents in percepts.items():
-            if any("waste_green" in c for c in contents):
-                return ("move", pos)
-
-        # Random exploration
-        neighbors = list(percepts.keys())
-        return ("move", random.choice(neighbors))
-
-
-class YellowAgent(RobotAgent):
-    """Robot restricted to zones Z1 and Z2 for yellow waste transformation."""
-
-    def deliberate(self, knowledge):
-        percepts = knowledge['last_percepts']
-        inventory = knowledge['inventory']
-
-        # 1. Transformation
-        yellow_wastes = [w for w in inventory if w.waste_type == "yellow"]
-        if len(yellow_wastes) >= 2:
-            return ("transform",)
-
-        # 2. Delivery: if holding red, move to Z2/Z3 boundary
-        red_wastes = [w for w in inventory if w.waste_type == "red"]
-        if red_wastes:
-            z2_positions = [pos for pos, contents in percepts.items() if any("zone_2" in c for c in contents)]
-            if z2_positions:
-                target_pos = max(z2_positions, key=lambda p: p[0])
-                if self.pos == target_pos:
-                    return ("drop",)
-                return ("move", target_pos)
-
-        # 3. Collection: if yellow waste on current tile
-        current_cell_contents = percepts.get(self.pos, [])
-        yellow_waste_id = next((int(c.split('_')[1]) for c in current_cell_contents if "Waste" in c and "yellow" in c), None)
-        if yellow_waste_id is not None and len(yellow_wastes) < 2:
-            return ("pick_up", yellow_waste_id)
+        # 3. If green waste here -> Pick up
+        green_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_green")
+        if green_id is not None and len(inventory) < 2:
+            return ("pick_up", green_id)
 
         # 4. Search
         for pos, contents in percepts.items():
-            if any("waste_yellow" in c for c in contents):
+            if "waste_green" in contents:
                 return ("move", pos)
-
+        
         neighbors = list(percepts.keys())
         return ("move", random.choice(neighbors))
 
-
-class RedAgent(RobotAgent):
-    """Robot moving in all zones for waste disposal in Z3."""
-
+class YellowAgent(RobotAgent):
     def deliberate(self, knowledge):
         percepts = knowledge['last_percepts']
         inventory = knowledge['inventory']
 
-        # 1. Disposal: if holding red, move to disposal zone
+        if len([w for w in inventory if w.waste_type == "yellow"]) >= 2:
+            return ("transform",)
+
         red_wastes = [w for w in inventory if w.waste_type == "red"]
         if red_wastes:
-            # Search for disposal zone in percepts
-            for pos, contents in percepts.items():
-                if "WasteDisposalZone" in contents:
-                    if self.pos == pos:
-                        return ("drop",)
-                    return ("move", pos)
-            # Otherwise move East
-            neighbors = list(percepts.keys())
-            target_pos = max(neighbors, key=lambda p: p[0])
-            return ("move", target_pos)
+            z2_pos = [p for p, c in percepts.items() if any("zone_2" in item for item in c)]
+            if z2_pos:
+                target = max(z2_pos, key=lambda p: p[0])
+                if self.pos == target:
+                    self.model.do(self, ("post_message", {"type": "waste_ready", "waste": "red", "pos": self.pos}))
+                    return ("drop",)
+                return ("move", target)
 
-        # 2. Collection: if red waste on tile
-        current_cell_contents = percepts.get(self.pos, [])
-        red_waste_id = next((int(c.split('_')[1]) for c in current_cell_contents if "Waste" in c and "red" in c), None)
-        if red_waste_id is not None and not red_wastes:
-            return ("pick_up", red_waste_id)
+        yellow_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_yellow")
+        if yellow_id is not None and len(inventory) < 2:
+            return ("pick_up", yellow_id)
 
-        # 3. Search
+        # Communication: Check for signaled yellow waste
+        for msg in self.model.message_board:
+            if msg["type"] == "waste_ready" and msg["waste"] == "yellow":
+                # Move towards signaled pos (simple logic: move East if target is East)
+                if msg["pos"][0] > self.pos[0]:
+                    neighbors = [p for p in percepts.keys() if p[0] > self.pos[0]]
+                    if neighbors: return ("move", random.choice(neighbors))
+
         for pos, contents in percepts.items():
-            if any("waste_red" in c for c in contents):
+            if "waste_yellow" in contents:
                 return ("move", pos)
+        
+        neighbors = list(percepts.keys())
+        return ("move", random.choice(neighbors))
 
+class RedAgent(RobotAgent):
+    def deliberate(self, knowledge):
+        percepts = knowledge['last_percepts']
+        inventory = knowledge['inventory']
+
+        red_wastes = [w for w in inventory if w.waste_type == "red"]
+        if red_wastes:
+            for pos, contents in percepts.items():
+                if "type_WasteDisposalZone" in contents:
+                    if self.pos == pos: return ("drop",)
+                    return ("move", pos)
+            # Move East
+            neighbors = [p for p in percepts.keys() if p[0] > self.pos[0]]
+            if neighbors: return ("move", random.choice(neighbors))
+
+        red_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_red")
+        if red_id is not None and not red_wastes:
+            return ("pick_up", red_id)
+
+        # Communication
+        for msg in self.model.message_board:
+            if msg["type"] == "waste_ready" and msg["waste"] == "red":
+                if msg["pos"][0] > self.pos[0]:
+                    neighbors = [p for p in percepts.keys() if p[0] > self.pos[0]]
+                    if neighbors: return ("move", random.choice(neighbors))
+
+        for pos, contents in percepts.items():
+            if "waste_red" in contents:
+                return ("move", pos)
+        
         neighbors = list(percepts.keys())
         return ("move", random.choice(neighbors))
