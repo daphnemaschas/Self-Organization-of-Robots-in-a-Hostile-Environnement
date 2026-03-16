@@ -21,9 +21,12 @@ class RobotAgent(Agent):
         """Update knowledge with new percepts."""
         knowledge['last_percepts'] = percepts
 
-    def get_current_zone(self):
-        """Get zone by checking radioactivity at current position."""
-        cell_contents = self.model.grid.get_cell_list_contents(self.pos)
+    def get_zone(self, pos=None):
+        """Get zone by checking radioactivity at given position (default: current position)."""
+        if pos is None:
+            pos = self.pos
+        
+        cell_contents = self.model.grid.get_cell_list_contents(pos)
         for obj in cell_contents:
             if hasattr(obj, 'radioactivity'):
                 rad = obj.radioactivity
@@ -67,8 +70,16 @@ class GreenAgent(RobotAgent):
         possible_steps = self.model.grid.get_neighborhood(
             self.pos, moore=True, include_center=False
         )
-        empty_cells = [cell for cell in possible_steps if self.model.grid.is_cell_empty(cell)]
+        
+        z1_cells = []
+        for cell in possible_steps:
+            contents = self.model.grid.get_cell_list_contents(cell)
+            for obj in contents:
+                if hasattr(obj, 'radioactivity') and 0 <= obj.radioactivity < 0.33:
+                    z1_cells.append(cell)
 
+
+        empty_cells = [cell for cell in possible_steps if self.model.grid.is_cell_empty(cell)]
         if empty_cells:
             new_position = self.random.choice(empty_cells)
             self.model.grid.move_agent(self, new_position)
