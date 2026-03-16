@@ -166,6 +166,24 @@ class YellowAgent(RobotAgent):
         self.yellow_waste = 0
         self.red_waste = 0
     
+    def move_east(self):
+        """Moves east within z1 and z2 to transport yellow waste towards z3."""
+        possible_steps = self.model.grid.get_neighborhood(
+            self.pos, moore=True, include_center=False
+        )
+        
+        valid_cells = []
+        for cell in possible_steps:
+            if self.get_zone(cell) in ["z1", "z2"] and cell[0] > self.pos[0]:
+                contents = self.model.grid.get_cell_list_contents(cell)
+                has_robot = any(isinstance(obj, RobotAgent) for obj in contents)
+                if not has_robot:
+                    valid_cells.append(cell)
+                
+        if valid_cells:
+            target = self.random.choice(valid_cells)
+            self.model.grid.move_agent(self, target)
+    
     def deliberate(self, knowledge):
         """Implementation of yellow waste collection and transformation logic."""
         # TODO: Logic for picking up 2 yellow wastes and transforming to red
