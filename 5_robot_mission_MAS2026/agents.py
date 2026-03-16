@@ -77,16 +77,10 @@ class GreenAgent(RobotAgent):
             self.model.grid.move_agent(self, new_position)
     
     def collect_waste(self):
-        """Collect 1 green waste from neighboring cells."""
-        neighborhood = self.model.grid.get_neighborhood(
-            self.pos, moore=True, include_center=False
-        )
-        for cell in neighborhood:
-            if cell in self.model.green_waste_cells and self.model.green_waste_cells[cell] > 0:
-                self.model.green_waste_cells[cell] -= 1
-                self.green_waste += 1
-                print("One green waste successfully collected") # DEBUG
-                break
+        """Collect 1 green waste from current cell."""
+        if self.pos in self.model.green_waste_cells and self.model.green_waste_cells[self.pos] > 0:
+            self.model.green_waste_cells[self.pos] -= 1
+            self.green_waste += 1
 
     def transform_waste(self):
         """Transform 2 green wastes into 1 yellow waste"""
