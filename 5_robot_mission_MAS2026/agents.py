@@ -230,6 +230,15 @@ class YellowAgent(RobotAgent):
             self.red_waste -= 1
             print("Yellow waste dropped")
 
+    def transform_waste(self):
+        """Transform 2 yellow wastes into 1 red waste"""
+        if self.yellow_waste>=2:
+            self.yellow_waste -= 2
+            self.red_waste += 1
+            print("Yellow waste successfully transformed into one red waste") # DEBUG
+            return True
+        return False
+
     def deliberate(self, knowledge):
         """Implementation of yellow waste collection and transformation logic."""
         # TODO: Logic for picking up 2 yellow wastes and transforming to red
