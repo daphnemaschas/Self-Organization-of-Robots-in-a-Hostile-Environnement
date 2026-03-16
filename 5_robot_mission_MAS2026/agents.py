@@ -165,6 +165,12 @@ class YellowAgent(RobotAgent):
         super().__init__(unique_id, model)
         self.yellow_waste = 0
         self.red_waste = 0
+
+    def is_at_z2_z3_boundary(self):
+        """Check if adjacent cell to the east is in z2."""
+        east_pos = (self.pos[0] + 1, self.pos[1])
+        return self.get_zone(self.pos) == "z2" and self.get_zone(east_pos) == "z3"
+    
     
     def move_east(self):
         """Moves east within z1 and z2 to transport yellow waste towards z3."""
@@ -241,8 +247,18 @@ class YellowAgent(RobotAgent):
 
     def deliberate(self, knowledge):
         """Implementation of yellow waste collection and transformation logic."""
-        # TODO: Logic for picking up 2 yellow wastes and transforming to red
-        return "move"
+        if self.red_waste > 0:
+            if self.is_at_z2_z3_boundary():
+                return "drop_waste"
+            else:
+                return "move_east"
+        
+        if self.green_waste >=2: 
+            return "transform"
+        
+        # Always explore to find waste (even if green_waste < 2)
+        # collect_waste() will be called in model.do() and collect if on a cell with waste
+        return "move" 
 
 
 class RedAgent(RobotAgent):
