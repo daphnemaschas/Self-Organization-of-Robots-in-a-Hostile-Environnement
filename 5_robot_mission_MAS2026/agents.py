@@ -57,7 +57,7 @@ class GreenAgent(RobotAgent):
             new_position = self.random.choice(empty_cells)
             self.model.grid.move_agent(self, new_position)
     
-    def collect_green_waste(self):
+    def collect_waste(self):
         """Collect 1 green waste from neighboring cells."""
         neighborhood = self.model.grid.get_neighborhood(
             self.pos, moore=True, include_center=False
@@ -85,8 +85,8 @@ class GreenAgent(RobotAgent):
         
         if self.green_waste < 2:
             return "collect"
-        # TODO: Logic for picking up 2 green wastes and transforming to yellow
-        return "move"
+
+        return "move" 
 
 
 class YellowAgent(RobotAgent):
