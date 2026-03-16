@@ -71,9 +71,16 @@ class GreenAgent(RobotAgent):
             self.pos, moore=True, include_center=False
         )
         
-        z1_cells = [cell for cell in possible_steps if self.get_zone(cell) == "z1"]
-        if z1_cells:
-            new_position = self.random.choice(z1_cells)
+        valid_cells = []
+        for cell in possible_steps:
+            if self.get_zone(cell) == "z1":
+                contents = self.model.grid.get_cell_list_contents(cell)
+                has_robot = any(isinstance(obj, RobotAgent) for obj in contents)
+                if not has_robot:
+                    valid_cells.append(cell)
+
+        if valid_cells:
+            new_position = self.random.choice(valid_cells)
             self.model.grid.move_agent(self, new_position)
     
     def collect_waste(self):
