@@ -22,7 +22,7 @@ The mission relies on three types of robots with specific movement constraints a
 
 ## Architecture
 The implementation follows a modular approach:
-* **notebooks/**: Gather all notebooks used for visualization purposes.
+* **`notebooks/`**: Gather all notebooks used for visualization purposes.
 * **`src/`**: Contains the core MAS logic (Agent behavior, Environment rules, Visualization).
 * **`utils/`**: Shared constants (radioactivity thresholds) and helper functions.
 * **`run.py`**: Executes the simulation.
