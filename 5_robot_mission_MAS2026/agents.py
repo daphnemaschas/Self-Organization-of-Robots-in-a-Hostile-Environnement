@@ -71,16 +71,19 @@ class GreenAgent(RobotAgent):
             self.pos, moore=True, include_center=False
         )
         
-        z1_cells = [cell for cell in possible_steps if self.get_zone(cell) == "z1" and self.model.grid.is_cell_empty(cell)]
+        z1_cells = [cell for cell in possible_steps if self.get_zone(cell) == "z1"]
         if z1_cells:
             new_position = self.random.choice(z1_cells)
             self.model.grid.move_agent(self, new_position)
     
     def collect_waste(self):
         """Collect 1 green waste from current cell."""
-        if self.pos in self.model.green_waste_cells and self.model.green_waste_cells[self.pos] > 0:
-            self.model.green_waste_cells[self.pos] -= 1
-            self.green_waste += 1
+        cell_contents = self.model.grid.get_cell_list_contents(self.pos)
+        for obj in cell_contents:
+            if hasattr(obj, 'waste_type') and obj.waste_type == 'green':
+                self.green_waste += 1
+                self.model.grid.remove_agent(obj)
+                break
 
     def transform_waste(self):
         """Transform 2 green wastes into 1 yellow waste"""
