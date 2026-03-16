@@ -1,8 +1,8 @@
 """Module defining the robot agents for the mission."""
 
-import mesa
+from mesa import Agent
 
-class RobotAgent(mesa.Agent):
+class RobotAgent(Agent):
     """Base class for all robot agents.
 
     Attributes:
@@ -45,7 +45,17 @@ class GreenAgent(RobotAgent):
         super().__init__(unique_id, model)
         self.green_waste = 0
         self.yellow_waste = 0
+    
+    def move(self):
+        """Moves to an empty neighboring cell."""
+        possible_steps = self.model.grid.get_neighborhood(
+            self.pos, moore=True, include_center=False
+        )
+        empty_cells = [cell for cell in possible_steps if self.model.grid.is_cell_empty(cell)]
 
+        if empty_cells:
+            new_position = self.random.choice(empty_cells)
+            self.model.grid.move_agent(self, new_position)
 
     def deliberate(self, knowledge):
         """Implementation of green waste collection and transformation logic."""
