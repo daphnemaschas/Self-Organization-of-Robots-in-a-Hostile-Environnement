@@ -99,9 +99,8 @@ class GreenAgent(RobotAgent):
         if self.green_waste >=2: 
             return "transform"
         
-        if self.green_waste < 2:
-            return "collect"
-
+        # Always explore to find waste (even if green_waste < 2)
+        # collect_waste() will be called in model.do() and collect if on a cell with waste
         return "move" 
 
 
