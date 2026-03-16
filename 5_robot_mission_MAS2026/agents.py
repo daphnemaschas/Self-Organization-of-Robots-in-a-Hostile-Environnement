@@ -65,7 +65,7 @@ class GreenAgent(RobotAgent):
             self.pos, moore=True, include_center=False
         )
         for cell in neighborhood:
-            if cell in self.model.green_waste_cell and self.model.green_waste_cells[cell] > 0:
+            if cell in self.model.green_waste_cells and self.model.green_waste_cells[cell] > 0:
                 self.model.green_waste_cells[cell] -= 1
                 self.green_waste += 1
                 print("One green waste successfully collected") # DEBUG
