@@ -16,15 +16,17 @@ class RobotAgent(Agent):
     def step(self):
         """Standard Mesa step calling the specific agent logic."""
         self.step_agent()
+    
+    def update(self, knowledge, percepts):
+        """Update knowledge with new percepts."""
+        knowledge['last_percepts'] = percepts
 
     def step_agent(self):
         """Procedural loop: update knowledge, deliberate, and execute action."""
-        # Update knowledge with previous percepts if they exist
-        percepts = self.model.do(self, None)  # Initial percepts
-        self.knowledge['last_percepts'] = percepts
-        
+        percepts = self.model.do(self, None)
+        self.update(self.knowledge, percepts)
         action = self.deliberate(self.knowledge)
-        self.knowledge['last_percepts'] = self.model.do(self, action)
+        percepts = self.model.do(self, action)
 
     def deliberate(self, knowledge):
         """Reasoning step to choose the next action.
@@ -68,6 +70,7 @@ class GreenAgent(RobotAgent):
                 self.green_waste += 1
                 print("One green waste successfully collected") # DEBUG
                 break
+
     def transform_waste(self):
         """Transform 2 green wastes into 1 yellow waste"""
         if self.green_waste>=2:
