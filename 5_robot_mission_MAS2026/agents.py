@@ -66,10 +66,25 @@ class GreenAgent(RobotAgent):
             if cell in self.model.green_waste_cell and self.model.green_waste_cells[cell] > 0:
                 self.model.green_waste_cells[cell] -= 1
                 self.green_waste += 1
+                print("One green waste successfully collected") # DEBUG
                 break
+    def transform_waste(self):
+        """Transform 2 green wastes into 1 yellow waste"""
+        if self.green_waste>=2:
+            self.green_waste -= 2
+            self.yellow_waste += 1
+            print("Green waste successfully transformed into one yellow waste") # DEBUG
+            return True
+        return False
 
     def deliberate(self, knowledge):
         """Implementation of green waste collection and transformation logic."""
+
+        if self.green_waste >=2: 
+            return "transform"
+        
+        if self.green_waste < 2:
+            return "collect"
         # TODO: Logic for picking up 2 green wastes and transforming to yellow
         return "move"
 
