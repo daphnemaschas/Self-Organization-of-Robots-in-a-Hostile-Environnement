@@ -230,7 +230,7 @@ class YellowAgent(RobotAgent):
     
     def drop_waste(self):
         """Drop 1 red waste on current cell."""
-        if self.yellow_waste > 0:
+        if self.red_waste > 0:
             waste = RedWaste(self.model)  # TBD
             self.model.grid.place_agent(waste, self.pos)
             self.red_waste -= 1
@@ -253,7 +253,7 @@ class YellowAgent(RobotAgent):
             else:
                 return "move_east"
         
-        if self.green_waste >=2: 
+        if self.yellow_waste >=2: 
             return "transform"
         
         # Always explore to find waste (even if green_waste < 2)
@@ -264,7 +264,125 @@ class YellowAgent(RobotAgent):
 class RedAgent(RobotAgent):
     """Robot moving in all zones for waste disposal in Z3."""
 
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+        self.red_waste = 0
+    
+    def discover_disposal_zone(self):
+        """Look for disposal zone on current cell and memorize position."""
+        cell_contents = self.model.grid.get_cell_list_contents(self.pos)
+        for obj in cell_contents:
+            if isinstance(obj, WasteDisposalZone):
+                self.knowledge['disposal_zone_pos'] = obj.pos
+                print(f"Disposal zone discovered at {obj.pos} and memorized!")
+                return True
+        return False
+    
+    def is_at_disposal(self):
+        """Check if current position is at the disposal zone."""
+        if 'disposal_zone_pos' in self.knowledge:
+            return self.pos == self.knowledge['disposal_zone_pos']
+        # Sinon vérifier manuellement
+        cell_contents = self.model.grid.get_cell_list_contents(self.pos)
+        return any(isinstance(obj, WasteDisposalZone) for obj in cell_contents)
+    
+    def move_east(self):
+        """Moves east towards disposal zone."""
+        if 'disposal_zone_pos' in self.knowledge:
+            disposal_pos = self.knowledge['disposal_zone_pos']
+            possible_steps = self.model.grid.get_neighborhood(
+                self.pos, moore=True, include_center=False
+            )
+            
+            # Chercher la cellule adjacente la plus proche du disposal
+            closest = None
+            min_dist = float('inf')
+            for cell in possible_steps:
+                zone = self.get_zone(cell)
+                if zone in ["z1", "z2", "z3"]:
+                    contents = self.model.grid.get_cell_list_contents(cell)
+                    has_robot = any(isinstance(obj, RobotAgent) for obj in contents)
+                    if not has_robot:
+                        # Calcul manhattan distance
+                        dist = abs(cell[0] - disposal_pos[0]) + abs(cell[1] - disposal_pos[1])
+                        if dist < min_dist:
+                            min_dist = dist
+                            closest = cell
+            
+            if closest:
+                self.model.grid.move_agent(self, closest)
+        else:
+            possible_steps = self.model.grid.get_neighborhood(
+                self.pos, moore=True, include_center=False
+            )
+            
+            valid_cells = []
+            for cell in possible_steps:
+                zone = self.get_zone(cell)
+                if cell[0] > self.pos[0]:
+                    contents = self.model.grid.get_cell_list_contents(cell)
+                    has_robot = any(isinstance(obj, RobotAgent) for obj in contents)
+                    if not has_robot:
+                        valid_cells.append(cell)
+                    
+            if valid_cells:
+                target = self.random.choice(valid_cells)
+                self.model.grid.move_agent(self, target)
+    
+    def move(self):
+        """Moves to an empty neighboring cell within z1 and z2."""
+        possible_steps = self.model.grid.get_neighborhood(
+            self.pos, moore=True, include_center=False
+        )
+        
+        valid_cells = []
+        cells_with_waste = []
+        for cell in possible_steps:
+            contents = self.model.grid.get_cell_list_contents(cell)
+            has_robot = any(isinstance(obj, RobotAgent) for obj in contents)
+            if not has_robot:
+                valid_cells.append(cell)
+                has_waste = any(hasattr(obj, 'waste_type') and obj.waste_type == 'red' for obj in contents)
+                if has_waste:
+                    cells_with_waste.append(cell)
+
+        # Prioritize cells with red waste
+        target = None
+        if cells_with_waste:
+            target = self.random.choice(cells_with_waste)
+        elif valid_cells:
+            target = self.random.choice(valid_cells)
+        
+        if target:
+            self.model.grid.move_agent(self, target)
+    
+    def collect_waste(self):
+        """Collect 1 red waste from current cell."""
+        cell_contents = self.model.grid.get_cell_list_contents(self.pos)
+        for obj in cell_contents:
+            if hasattr(obj, 'waste_type') and obj.waste_type == 'red':
+                self.yellow_waste += 1
+                self.model.grid.remove_agent(obj)
+                print("Successfully collected a red waste") # DEBUG
+                break
+    
+    def put_away_waste(self):
+        """Drop 1 red waste on current cell."""
+        if self.red_waste > 0:
+            waste = RedWaste(self.model)  # TBD
+            self.model.grid.place_agent(waste, self.pos)
+            self.red_waste -= 1
+            print("Yellow waste dropped")
+
     def deliberate(self, knowledge):
         """Implementation of red waste transport logic."""
-        # TODO: Logic for picking up 1 red waste and moving east
+        if 'disposal_zone_pos' not in knowledge:
+            self.discover_disposal_zone()
+        
+        if self.red_waste > 0:
+            if self.is_at_disposal():
+                return "put_away_waste"
+            else:
+                return "move_east"
+        
         return "move"
