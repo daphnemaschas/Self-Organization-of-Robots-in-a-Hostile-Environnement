@@ -64,6 +64,24 @@ class GreenAgent(RobotAgent):
         super().__init__(unique_id, model)
         self.green_waste = 0
         self.yellow_waste = 0
+
+    def move_east(self):
+        """Moves east within z1 to transport yellow waste towards z2."""
+        possible_steps = self.model.grid.get_neighborhood(
+            self.pos, moore=True, include_center=False
+        )
+        
+        valid_cells = []
+        for cell in possible_steps:
+            if self.get_zone(cell) == "z1" and cell[0] > self.pos[0]:
+                contents = self.model.grid.get_cell_list_contents(cell)
+                has_robot = any(isinstance(obj, RobotAgent) for obj in contents)
+                if not has_robot:
+                    valid_cells.append(cell)
+                
+        if valid_cells:
+            target = self.random.choice(valid_cells)
+            self.model.grid.move_agent(self, target)
     
     def move(self):
         """Moves to an empty neighboring cell within z1."""
@@ -100,7 +118,7 @@ class GreenAgent(RobotAgent):
             if hasattr(obj, 'waste_type') and obj.waste_type == 'green':
                 self.green_waste += 1
                 self.model.grid.remove_agent(obj)
-                print("Successfully collected a green waste")
+                print("Successfully collected a green waste") # DEBUG
                 break
 
     def transform_waste(self):
