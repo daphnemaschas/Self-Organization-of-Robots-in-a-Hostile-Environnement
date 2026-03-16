@@ -21,6 +21,20 @@ class RobotAgent(Agent):
         """Update knowledge with new percepts."""
         knowledge['last_percepts'] = percepts
 
+    def get_current_zone(self):
+        """Get zone by checking radioactivity at current position."""
+        cell_contents = self.model.grid.get_cell_list_contents(self.pos)
+        for obj in cell_contents:
+            if hasattr(obj, 'radioactivity'):
+                rad = obj.radioactivity
+                if 0 <= rad < 0.33:
+                    return "z1"
+                elif 0.33 <= rad < 0.66:
+                    return "z2"
+                elif 0.66 <= rad <= 1.0:
+                    return "z3"
+        return None
+
     def step_agent(self):
         """Procedural loop: update knowledge, deliberate, and execute action."""
         percepts = self.model.do(self, None)
@@ -41,7 +55,7 @@ class RobotAgent(Agent):
 
 
 class GreenAgent(RobotAgent):
-    """Robot restricted to zone Z1 for green waste transformation."""
+    """Robot restricted to zone z1 for green waste transformation."""
 
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
@@ -49,7 +63,7 @@ class GreenAgent(RobotAgent):
         self.yellow_waste = 0
     
     def move(self):
-        """Moves to an empty neighboring cell."""
+        """Moves to an empty neighboring cell within z1."""
         possible_steps = self.model.grid.get_neighborhood(
             self.pos, moore=True, include_center=False
         )
@@ -82,7 +96,9 @@ class GreenAgent(RobotAgent):
 
     def deliberate(self, knowledge):
         """Implementation of green waste collection and transformation logic."""
-
+        if self.yellow_waste > 0:
+                return "move_east"
+        
         if self.green_waste >=2: 
             return "transform"
         
