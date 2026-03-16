@@ -64,7 +64,12 @@ class GreenAgent(RobotAgent):
         super().__init__(unique_id, model)
         self.green_waste = 0
         self.yellow_waste = 0
-
+    
+    def is_at_z1_z2_boundary(self):
+        """Check if adjacent cell to the east is in z2."""
+        east_pos = (self.pos[0] + 1, self.pos[1])
+        return self.get_zone(self.pos) == "z1" and self.get_zone(east_pos) == "z2"
+    
     def move_east(self):
         """Moves east within z1 to transport yellow waste towards z2."""
         possible_steps = self.model.grid.get_neighborhood(
@@ -120,6 +125,14 @@ class GreenAgent(RobotAgent):
                 self.model.grid.remove_agent(obj)
                 print("Successfully collected a green waste") # DEBUG
                 break
+    
+    def drop_waste(self):
+        """Drop 1 yellow waste on current cell."""
+        if self.yellow_waste > 0:
+            waste = YellowWaste(self.model)  # TBD
+            self.model.grid.place_agent(waste, self.pos)
+            self.yellow_waste -= 1
+            print("Yellow waste dropped")
 
     def transform_waste(self):
         """Transform 2 green wastes into 1 yellow waste"""
@@ -133,6 +146,9 @@ class GreenAgent(RobotAgent):
     def deliberate(self, knowledge):
         """Implementation of green waste collection and transformation logic."""
         if self.yellow_waste > 0:
+            if self.is_at_z1_z2_boundary():
+                return "drop_waste"
+            else:
                 return "move_east"
         
         if self.green_waste >=2: 
