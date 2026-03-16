@@ -160,7 +160,7 @@ class GreenAgent(RobotAgent):
 
 
 class YellowAgent(RobotAgent):
-    """Robot restricted to zones Z1 and Z2 for yellow waste transformation."""
+    """Robot restricted to zones z1 and z2 for yellow waste transformation."""
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
         self.yellow_waste = 0
@@ -184,6 +184,34 @@ class YellowAgent(RobotAgent):
             target = self.random.choice(valid_cells)
             self.model.grid.move_agent(self, target)
     
+    def move(self):
+        """Moves to an empty neighboring cell within z1 and z2."""
+        possible_steps = self.model.grid.get_neighborhood(
+            self.pos, moore=True, include_center=False
+        )
+        
+        valid_cells = []
+        cells_with_waste = []
+        for cell in possible_steps:
+            if self.get_zone(cell) in ["z1", "z2"]:
+                contents = self.model.grid.get_cell_list_contents(cell)
+                has_robot = any(isinstance(obj, RobotAgent) for obj in contents)
+                if not has_robot:
+                    valid_cells.append(cell)
+                    has_waste = any(hasattr(obj, 'waste_type') and obj.waste_type == 'yellow' for obj in contents)
+                    if has_waste:
+                        cells_with_waste.append(cell)
+
+        # Prioritize cells with yellow waste
+        target = None
+        if cells_with_waste:
+            target = self.random.choice(cells_with_waste)
+        elif valid_cells:
+            target = self.random.choice(valid_cells)
+        
+        if target:
+            self.model.grid.move_agent(self, target)
+
     def deliberate(self, knowledge):
         """Implementation of yellow waste collection and transformation logic."""
         # TODO: Logic for picking up 2 yellow wastes and transforming to red
