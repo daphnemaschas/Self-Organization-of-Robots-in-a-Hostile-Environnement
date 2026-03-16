@@ -100,6 +100,7 @@ class GreenAgent(RobotAgent):
             if hasattr(obj, 'waste_type') and obj.waste_type == 'green':
                 self.green_waste += 1
                 self.model.grid.remove_agent(obj)
+                print("Successfully collected a green waste")
                 break
 
     def transform_waste(self):
