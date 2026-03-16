@@ -41,6 +41,12 @@ class RobotAgent(mesa.Agent):
 class GreenAgent(RobotAgent):
     """Robot restricted to zone Z1 for green waste transformation."""
 
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+        self.green_waste = 0
+        self.yellow_waste = 0
+
+
     def deliberate(self, knowledge):
         """Implementation of green waste collection and transformation logic."""
         # TODO: Logic for picking up 2 green wastes and transforming to yellow
