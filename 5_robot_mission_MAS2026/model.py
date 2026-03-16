@@ -140,7 +140,13 @@ class RobotMission(mesa.Model):
         elif cmd == "drop":
             if agent.knowledge['inventory']:
                 waste = agent.knowledge['inventory'].pop()
-                self.grid.place_agent(waste, agent.pos)
+                # Check if dropped on disposal zone
+                cell_contents = self.grid.get_cell_list_contents(agent.pos)
+                if any(isinstance(obj, WasteDisposalZone) for obj in cell_contents):
+                    # Waste is "put away" (removed from the simulation)
+                    waste.remove()
+                else:
+                    self.grid.place_agent(waste, agent.pos)
 
     def can_pick_up(self, agent, waste):
         if isinstance(agent, GreenAgent):
@@ -160,11 +166,14 @@ class RobotMission(mesa.Model):
         return False
 
     def perform_transformation(self, agent):
-        # Remove ingredients and add new product to inventory
-        agent.knowledge['inventory'] = [] # Simplified: consume all
+        # Remove ingredients from the simulation
+        for w in agent.knowledge['inventory']:
+            w.remove()
+        
+        agent.knowledge['inventory'] = []
         new_type = "yellow" if isinstance(agent, GreenAgent) else "red"
         new_waste = Waste(self, new_type)
-        # Note: the new_waste is in inventory, not on grid
+        # The new_waste is in inventory, not on grid
         agent.knowledge['inventory'].append(new_waste)
 
     def is_move_valid(self, agent, pos):
