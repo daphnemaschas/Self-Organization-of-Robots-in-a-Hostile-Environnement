@@ -159,16 +159,37 @@ class RedAgent(RobotAgent):
         inventory = knowledge['inventory']
         z2_end = 2 * (self.model.width // 3)
 
-        # 1. Disposal: Move to Disposal Zone
+        # 1. Disposal Logic
         red_wastes = [w for w in inventory if w.waste_type == "red"]
         if red_wastes:
-            # Check if disposal zone is in percepts
+            # Check if disposal zone is in percepts (Highest priority)
             for pos, contents in percepts.items():
                 if "type_WasteDisposalZone" in contents:
-                    if self.pos == pos: return ("drop",)
+                    if self.pos == pos: 
+                        knowledge['disposal_phase'] = "down" # Reset for next time
+                        return ("drop",)
                     return ("move", pos)
-            # Move towards east border
-            return ("move", (min(self.pos[0] + 1, self.model.width - 1), self.pos[1]))
+            
+            # Step-by-step search pattern
+            target_x = self.model.width - 1
+            # A. Go to eastern border
+            if self.pos[0] < target_x:
+                return ("move", (self.pos[0] + 1, self.pos[1]))
+            
+            # B. Now at eastern border, perform vertical search
+            phase = knowledge.get('disposal_phase', "down")
+            if phase == "down":
+                if self.pos[1] > 0:
+                    return ("move", (self.pos[0], self.pos[1] - 1))
+                else:
+                    knowledge['disposal_phase'] = "up"
+                    return ("move", (self.pos[0], self.pos[1] + 1))
+            else: # phase == "up"
+                if self.pos[1] < self.model.height - 1:
+                    return ("move", (self.pos[0], self.pos[1] + 1))
+                else:
+                    knowledge['disposal_phase'] = "down"
+                    return ("move", (self.pos[0], self.pos[1] - 1))
 
         # 2. Collection: If red waste here
         red_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_red")
