@@ -72,16 +72,26 @@ class GreenAgent(RobotAgent):
         )
         
         valid_cells = []
+        cells_with_waste = []
         for cell in possible_steps:
             if self.get_zone(cell) == "z1":
                 contents = self.model.grid.get_cell_list_contents(cell)
                 has_robot = any(isinstance(obj, RobotAgent) for obj in contents)
                 if not has_robot:
                     valid_cells.append(cell)
+                    has_waste = any(hasattr(obj, 'waste_type') and obj.waste_type == 'green' for obj in contents)
+                    if has_waste:
+                        cells_with_waste.append(cell)
 
-        if valid_cells:
-            new_position = self.random.choice(valid_cells)
-            self.model.grid.move_agent(self, new_position)
+        # Prioritize cells with green waste
+        target = None
+        if cells_with_waste:
+            target = self.random.choice(cells_with_waste)
+        elif valid_cells:
+            target = self.random.choice(valid_cells)
+        
+        if target:
+            self.model.grid.move_agent(self, target)
     
     def collect_waste(self):
         """Collect 1 green waste from current cell."""
