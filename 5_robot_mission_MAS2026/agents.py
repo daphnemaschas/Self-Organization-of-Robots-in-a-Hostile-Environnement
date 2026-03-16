@@ -211,6 +211,16 @@ class YellowAgent(RobotAgent):
         
         if target:
             self.model.grid.move_agent(self, target)
+    
+    def collect_waste(self):
+        """Collect 1 yellow waste from current cell."""
+        cell_contents = self.model.grid.get_cell_list_contents(self.pos)
+        for obj in cell_contents:
+            if hasattr(obj, 'waste_type') and obj.waste_type == 'yellow':
+                self.green_waste += 1
+                self.model.grid.remove_agent(obj)
+                print("Successfully collected a yellow waste") # DEBUG
+                break
 
     def deliberate(self, knowledge):
         """Implementation of yellow waste collection and transformation logic."""
