@@ -1,7 +1,7 @@
 """
 Group 5
 Date: 2026-03-16
-Members: Associate 1, Gemini CLI
+Members: Maxence Rossignol, Antoine Yezou, Daphné Maschas
 
 This module defines the robot agents with communication capabilities (Step 2).
 """
