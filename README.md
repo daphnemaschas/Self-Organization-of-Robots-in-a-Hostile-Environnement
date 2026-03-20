@@ -40,7 +40,7 @@ L'objectif est d'optimiser l'organisation collective pour minimiser l'impact rad
 
 ### Calcul de la Radioactivité Totale
 À chaque unité de temps ($step$), la radioactivité totale $R$ est calculée :
-$$R_{total} = (1 \times \text{nb\_verts}) + (2 \times \text{nb\_jaunes}) + (4 \times \text{nb\_rouges})$$
+$$R_{total} = (1 \times N_{verts}) + (2 \times N_{jaunes}) + (4 \times N_{rouges})$$
 *Note : Les déchets possédés par les robots comptent toujours dans la radioactivité totale de l'environnement.*
 
 ### Analyse de Performance
