@@ -19,7 +19,7 @@ class RobotMission(mesa.Model):
         width (int): Grid width.
         height (int): Grid height.
     """
-    def __init__(self, width=15, height=10, initial_green_waste=10, n_green_robots=2, n_yellow_robots=2, n_red_robots=2):
+    def __init__(self, width=15, height=10, initial_green_waste=10, initial_yellow_waste=10, initial_red_waste=10, n_green_robots=2, n_yellow_robots=2, n_red_robots=2):
         super().__init__()
         self.width = width
         self.height = height
@@ -56,6 +56,20 @@ class RobotMission(mesa.Model):
             x = random.randrange(z1_end)
             y = random.randrange(height)
             waste = Waste(self, 'green')
+            self.grid.place_agent(waste, (x, y))
+
+        # Initial yellow waste in Z2
+        for _ in range(initial_yellow_waste):
+            x = random.randrange(z1_end, z2_end)
+            y = random.randrange(height)
+            waste = Waste(self, 'yellow')
+            self.grid.place_agent(waste, (x, y))
+            
+        # Initial red waste in Z3
+        for _ in range(initial_red_waste):
+            x = random.randrange(z2_end, width)
+            y = random.randrange(height)
+            waste = Waste(self, 'red')
             self.grid.place_agent(waste, (x, y))
 
         # Place all robots

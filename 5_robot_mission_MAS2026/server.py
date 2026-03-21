@@ -89,6 +89,22 @@ model_params = {
         "min": 0,
         "max": 50,
         "step": 1,
+    },
+    "initial_yellow_waste": {
+        "type": "SliderInt",
+        "value": 15,
+        "label": "Initial Yellow Waste",
+        "min": 0,
+        "max": 50,
+        "step": 1,
+    },
+    "initial_red_waste": {
+        "type": "SliderInt",
+        "value": 15,
+        "label": "Initial Red Waste",
+        "min": 0,
+        "max": 50,
+        "step": 1,
     }
 }
 
