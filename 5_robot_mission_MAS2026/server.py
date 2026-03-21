@@ -1,7 +1,7 @@
 """
 Group 5
 Date: 2026-03-16
-Members: Associate 1, Gemini CLI
+Members: Maxence Rossignol, Antoine Yezou, Daphné Maschas
 
 This module defines the visualization for the RobotMission simulation using Mesa 3.x (Solara).
 Following EXACTLY the pattern from the Wolf-Sheep example in Mesa 3.5.1.
@@ -9,7 +9,7 @@ Following EXACTLY the pattern from the Wolf-Sheep example in Mesa 3.5.1.
 
 import mesa
 from mesa.visualization import SolaraViz, SpaceRenderer
-from mesa.visualization.components import AgentPortrayalStyle
+from mesa.visualization.components import AgentPortrayalStyle, make_plot_component
 from model import RobotMission
 from agents import GreenAgent, YellowAgent, RedAgent
 from objects import Waste, RadioactivitySource, WasteDisposalZone
@@ -120,11 +120,23 @@ renderer = SpaceRenderer(
 # Added following the wolf_sheep example
 renderer.draw_agents()
 
+# Add a graph for waste stocks
+waste_plot = make_plot_component({
+    "Green_Waste": "green", 
+    "Yellow_Waste": "#FFD700", 
+    "Red_Waste": "red"
+})
+
+# Add a graph for total radioactivity
+radio_plot = make_plot_component("Total_Radioactivity")
+
 # 4. Create the Solara visualization page
 # Note: wolf_sheep passes (model, renderer, components=..., model_params=...)
 page = SolaraViz(
     model,
     renderer,
     model_params=model_params,
-    name="Robot Mission MAS 2026"
+    name="Robot Mission MAS 2026",
+    components=[waste_plot, radio_plot]
 )
+

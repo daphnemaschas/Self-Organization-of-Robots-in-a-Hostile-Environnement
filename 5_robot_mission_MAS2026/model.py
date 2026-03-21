@@ -1,7 +1,7 @@
 """
 Group 5
 Date: 2026-03-16
-Members: Associate 1, Gemini CLI
+Members: Maxence Rossignol, Antoine Yezou, Daphné Maschas
 
 This module defines the RobotMission model and its central logic.
 """
@@ -23,6 +23,10 @@ class RobotMission(mesa.Model):
         super().__init__()
         self.width = width
         self.height = height
+        self.n_green_robots = n_green_robots
+        self.n_yellow_robots = n_yellow_robots
+        self.n_red_robots = n_red_robots
+
         self.grid = mesa.space.MultiGrid(width, height, torus=False)
         self.message_board = [] # Step 2: Communication
 
@@ -51,48 +55,104 @@ class RobotMission(mesa.Model):
         disposal_zone = WasteDisposalZone(self)
         self.grid.place_agent(disposal_zone, (width - 1, disposal_y))
 
-        # Initial green waste in Z1
-        for _ in range(initial_green_waste):
-            x = random.randrange(z1_end)
-            y = random.randrange(height)
-            waste = Waste(self, 'green')
-            self.grid.place_agent(waste, (x, y))
+        # Initial wastes
+        self._place_initial_wastes(initial_green_waste, initial_yellow_waste, initial_red_waste, z1_end, z2_end)
 
-        # Initial yellow waste in Z2
-        for _ in range(initial_yellow_waste):
-            x = random.randrange(z1_end, z2_end)
-            y = random.randrange(height)
-            waste = Waste(self, 'yellow')
-            self.grid.place_agent(waste, (x, y))
-            
-        # Initial red waste in Z3
-        for _ in range(initial_red_waste):
-            x = random.randrange(z2_end, width)
-            y = random.randrange(height)
-            waste = Waste(self, 'red')
-            self.grid.place_agent(waste, (x, y))
+        # Initial robots
+        self._setup_robots(z1_end, z2_end)
 
-        # Place all robots
-        for _ in range(n_green_robots):
-            self.add_robot(GreenAgent, (random.randrange(z1_end), random.randrange(self.height)))
-        for _ in range(n_yellow_robots):
-            self.add_robot(YellowAgent, (random.randrange(z1_end, z2_end), random.randrange(self.height)))
-        for _ in range(n_red_robots):
-            self.add_robot(RedAgent, (random.randrange(z2_end, self.width), random.randrange(self.height)))
+        # Data collection
+        self.datacollector = mesa.DataCollector(
+            model_reporters={
+                "Green_Waste": lambda m: self.count_waste(m, "green"),
+                "Yellow_Waste": lambda m: self.count_waste(m, "yellow"),
+                "Red_Waste": lambda m: self.count_waste(m, "red"),
+                "Total_Radioactivity": self.get_total_radioactivity,
+                "Messages": lambda m: len(m.message_board)
+            }
+        )
 
-    def place_robots(self, z1_end, z2_end):
-        # Example setup: 2 of each robot
-        for _ in range(2):
-            self.add_robot(GreenAgent, (random.randrange(z1_end), random.randrange(self.height)))
-            self.add_robot(YellowAgent, (random.randrange(z1_end, z2_end), random.randrange(self.height)))
-            self.add_robot(RedAgent, (random.randrange(z2_end, self.width), random.randrange(self.height)))
+    def _place_initial_wastes(self, g, y, r, z1, z2):
+        """Helper to distribute initial waste."""
+        for _ in range(g):
+            self.grid.place_agent(Waste(self, 'green'), (random.randrange(z1), random.randrange(self.height)))
+        for _ in range(y):
+            self.grid.place_agent(Waste(self, 'yellow'), (random.randrange(z1, z2), random.randrange(self.height)))
+        for _ in range(r):
+            self.grid.place_agent(Waste(self, 'red'), (random.randrange(z2, self.width), random.randrange(self.height)))
+
+    def _setup_robots(self, z1, z2):
+        """Helper to initialize robots."""
+        for _ in range(self.n_green_robots):
+            self.add_robot(GreenAgent, (random.randrange(z1), random.randrange(self.height)))
+        for _ in range(self.n_yellow_robots):
+            self.add_robot(YellowAgent, (random.randrange(z1, z2), random.randrange(self.height)))
+        for _ in range(self.n_red_robots):
+            self.add_robot(RedAgent, (random.randrange(z2, self.width), random.randrange(self.height)))
+
+    @staticmethod
+    def count_waste(model, waste_type):
+        """Compte les déchets d'un type précis sur la grille ET dans les inventaires."""
+        count = 0
+        # In the grid
+        for obj in model.grid.coord_iter():
+            cell_content, pos = obj
+            count += len([w for w in cell_content if isinstance(w, Waste) and w.waste_type == waste_type])
+        
+        # In agent inventory
+        for agent in model.agents:
+            if hasattr(agent, 'knowledge'):
+                count += len([w for w in agent.knowledge['inventory'] if w.waste_type == waste_type])
+        return count
+
+    def get_total_radioactivity(self):
+        """Compute total radioactivity on the map and on robots."""
+        weights = {"green": 1, "yellow": 2, "red": 3}
+        total_radio = 0
+        
+        # In the grid
+        for cell_content in self.grid.coord_iter():
+            content, pos = cell_content
+            for obj in content:
+                if isinstance(obj, Waste):
+                    total_radio += weights.get(obj.waste_type, 0)
+        
+        # In agent inventory
+        for agent in self.agents:
+            if hasattr(agent, 'knowledge'):
+                for waste in agent.knowledge['inventory']:
+                    total_radio += weights.get(waste.waste_type, 0)
+                    
+        return total_radio
 
     def add_robot(self, agent_class, pos):
         robot = agent_class(self)
         self.grid.place_agent(robot, pos)
 
+    def save_data(self, filename="data/simulation_log.csv"):
+        df = self.datacollector.get_model_vars_dataframe()
+        
+        df['n_green'] = self.n_green_robots 
+        df['n_yellow'] = self.n_yellow_robots
+        df['n_red'] = self.n_red_robots
+        df.to_csv(filename)
+        print(f"Données sauvegardées dans {filename}")
+
     def step(self):
+        self.datacollector.collect(self)
         self.agents.shuffle_do("step")
+
+        if self.steps > 0 and self.steps % 50 == 0:
+            self.save_data(f"data/sim_step_{self.steps}.csv")
+
+        total_wastes = (self.count_waste(self, "green") + 
+                        self.count_waste(self, "yellow") + 
+                        self.count_waste(self, "red"))
+        
+        if total_wastes == 0:
+            self.running = False
+            self.save_simulation_data("data/final_results.csv")
+            print("Mission accomplie : tous les déchets ont été évacués.")
 
     def do(self, agent, action):
         """Processes an agent's action and returns percepts."""
