@@ -150,13 +150,13 @@ class GreenAgent(RobotAgent):
             if self.knowledge.get('received_accept'):
                 self.knowledge['state'] = "MOVING_TO_ROBOT"
                 self.knowledge['received_accept'] = False
-                return ("move", self.knowledge.get('target_pos', self.pos)) 
+                return ("move", self.knowledge.get('target_pos', self.pos)) # TODO ?
             else:
                 return ("read_messages",)
             
         elif state == "MOVING_TO_ROBOT":
             if self.pos == self.knowledge.get('target_pos'):
-                self.knowledge['state'] = "WANDERING" # Repart au comportement usuel
+                self.knowledge['state'] = "WANDERING" # Repart au comportement usuel ou peut etre donne a un autre robot
                 self.knowledge['single_waste_steps'] = 0 
                 return ("send_message", MessagePerformative.INFORM) # PAS SURE
             else:
