@@ -9,6 +9,7 @@ This module defines the RobotMission model and its central logic.
 import os
 import mesa
 import random
+from communication.message.MessageService import MessageService
 from agents import GreenAgent, YellowAgent, RedAgent
 from objects import RadioactivitySource, Waste, WasteDisposalZone
 
@@ -27,6 +28,9 @@ class RobotMission(mesa.Model):
         self.n_green_robots = n_green_robots
         self.n_yellow_robots = n_yellow_robots
         self.n_red_robots = n_red_robots
+
+        # Initialize MessageService
+        self._instanciate_message_service()
 
         self.grid = mesa.space.MultiGrid(width, height, torus=False)
         self.message_board = [] # Step 2: Communication
@@ -73,6 +77,13 @@ class RobotMission(mesa.Model):
             }
         )
 
+    def _instanciate_message_service(self):
+        """Helper to instanciate MessageService"""
+        try:
+            MessageService.get_instance()
+        except:
+            self.__messages_service = MessageService(self, instant_delivery=False)
+    
     def _place_initial_wastes(self, g, y, r, z1, z2):
         """Helper to distribute initial waste."""
         for _ in range(g):
@@ -84,11 +95,11 @@ class RobotMission(mesa.Model):
 
     def _setup_robots(self, z1, z2):
         """Helper to initialize robots."""
-        for _ in range(self.n_green_robots):
+        for i in range(self.n_green_robots, f"GreenBot_{i}"):
             self.add_robot(GreenAgent, (random.randrange(z1), random.randrange(self.height)))
-        for _ in range(self.n_yellow_robots):
+        for i in range(self.n_yellow_robots, f"YellowBot_{i}"):
             self.add_robot(YellowAgent, (random.randrange(z1, z2), random.randrange(self.height)))
-        for _ in range(self.n_red_robots):
+        for i in range(self.n_red_robots, f"RedBot_{i}"):
             self.add_robot(RedAgent, (random.randrange(z2, self.width), random.randrange(self.height)))
 
     @staticmethod
@@ -141,6 +152,8 @@ class RobotMission(mesa.Model):
         print(f"Données sauvegardées dans {filename}")
 
     def step(self):
+        MessageService.get_instance().dispatch_messages()
+
         self.datacollector.collect(self)
         self.agents.shuffle_do("step")
 
