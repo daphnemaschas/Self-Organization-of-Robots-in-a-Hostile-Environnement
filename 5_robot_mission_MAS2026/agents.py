@@ -193,23 +193,37 @@ class GreenAgent(RobotAgent):
                 self.knowledge['received_accept'] = False
                 return ("move", self.knowledge.get('target_pos', self.pos)) # TODO ?
             else:
-                return ("read_messages",)
+                return ("move", self.pos)
             
         elif state == "MOVING_TO_ROBOT":
             if self.pos == self.knowledge.get('target_pos'):
-                # If he has reached the robot, sends a message saying he's here
-                self.knowledge['state'] = "WANDERING" # Repart au comportement usuel ou peut etre donne a un autre robot
+                self.knowledge['state'] = "SENDING_INFORM"
                 self.knowledge['single_waste_steps'] = 0 
-                return ("send_message", MessagePerformative.INFORM)
+                return ("drop",)
             else:
                 return ("move", self.knowledge['target_pos']) 
+        
+        elif state == "SENDING_INFORM":
+            # Informs the initiator that the waste is here
+            self.knowledge['state'] = "WANDERING" 
+            self.knowledge['single_waste_steps'] = 0 
+            return ("send_message", MessagePerformative.INFORM)
+        
+        elif state == "FLEEING":
+            # Message has been sent now he flees
+            self.knowledge['state'] = "WANDERING"
+            neighbors = [p for p in percepts.keys() if p != self.pos and p[0] < (self.model.width // 3)]
+            if neighbors:
+                return ("move", random.choice(neighbors))
+            return ("move", self.pos)
 
         elif state == "WAITING_INFORM":
             if self.knowledge.get('received_inform'):
+                # The initiator knows that the waste is here
                 self.knowledge['state'] = "WANDERING"
                 self.knowledge['single_waste_steps'] = 0
                 self.knowledge['received_inform'] = False
-                return ("read_messages",)
+                return ("move", self.pos)
             else:
                 return ("read_messages",)
         

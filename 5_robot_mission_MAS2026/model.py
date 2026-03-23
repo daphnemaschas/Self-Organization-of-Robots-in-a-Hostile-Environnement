@@ -84,6 +84,13 @@ class RobotMission(mesa.Model):
         """Helper to instanciate MessageService"""
         if MessageService.get_instance() is None:
             self.__messages_service = MessageService(self, instant_delivery=False)
+        else:
+            # Le Singleton existe déjà, mais on force la mise à jour du modèle
+            # pour Solara (grâce au "Name Mangling" Python on peut contourner les variables privées)
+            msg_service = MessageService.get_instance()
+            msg_service._MessageService__model = self
+            msg_service._MessageService__messages_to_proceed.clear()
+            self.__messages_service = msg_service
     
     def _place_initial_wastes(self, g, y, r, z1, z2):
         """Helper to distribute initial waste."""
@@ -177,6 +184,7 @@ class RobotMission(mesa.Model):
                 agent.handle_messages()
             elif action[0] == "send_message":
                 performative = action[1]
+                print(performative)
                 if performative == MessagePerformative.CFP:
                     # Sends a cry for help
                     content = {"pos": agent.pos, "waste_type": agent.color}
