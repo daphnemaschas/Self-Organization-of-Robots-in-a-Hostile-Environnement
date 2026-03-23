@@ -59,6 +59,9 @@ class RobotAgent(mesa.Agent):
         return None
 
 class GreenAgent(RobotAgent):
+    def __init__(self, model):
+        super().__init__(model)
+
     def deliberate(self, knowledge):
         percepts = knowledge['last_percepts']
         inventory = knowledge['inventory']
@@ -104,6 +107,10 @@ class GreenAgent(RobotAgent):
         return None
 
 class YellowAgent(RobotAgent):
+    def __init__(self, model, patrol=False):
+        super().__init__(model)
+        self.patrol = patrol
+
     def deliberate(self, knowledge):
         percepts = knowledge['last_percepts']
         inventory = knowledge['inventory']
@@ -136,8 +143,8 @@ class YellowAgent(RobotAgent):
             if "waste_yellow" in contents:
                 return ("move", pos)
 
-        # 5. Patrol Z1/Z2 border if waiting for more yellow waste
-        if not red_wastes and len(inventory) < 2:
+        # 5. Patrol Z1/Z2 border if waiting for more yellow waste if it is a patrolling agent
+        if not red_wastes and len(inventory) < 2 and self.patrol:
             target_x = z1_end # First column of Z2
             if self.pos[0] > target_x:
                 return ("move", (self.pos[0] - 1, self.pos[1]))
@@ -154,6 +161,10 @@ class YellowAgent(RobotAgent):
         return None
 
 class RedAgent(RobotAgent):
+    def __init__(self,model, patrol=False):
+        super().__init__(model)
+        self.patrol = patrol
+    
     def deliberate(self, knowledge):
         percepts = knowledge['last_percepts']
         inventory = knowledge['inventory']
@@ -201,8 +212,8 @@ class RedAgent(RobotAgent):
             if "waste_red" in contents:
                 return ("move", pos)
 
-        # 4. Patrol Z2/Z3 border (Waiting for Yellow robots)
-        if not inventory:
+        # 4. Patrol Z2/Z3 border (Waiting for Yellow robots) if is needs to patrol
+        if not inventory and self.patrol:
             target_x = z2_end # First column of Z3
             if self.pos[0] > target_x:
                 return ("move", (self.pos[0] - 1, self.pos[1]))
