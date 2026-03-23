@@ -6,6 +6,7 @@ Members: Maxence Rossignol, Antoine Yezou, Daphné Maschas
 This module defines the RobotMission model and its central logic.
 """
 
+import os
 import mesa
 import random
 from agents import GreenAgent, YellowAgent, RedAgent
@@ -130,6 +131,7 @@ class RobotMission(mesa.Model):
         self.grid.place_agent(robot, pos)
 
     def save_data(self, filename="data/simulation_log.csv"):
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
         df = self.datacollector.get_model_vars_dataframe()
         
         df['n_green'] = self.n_green_robots 
