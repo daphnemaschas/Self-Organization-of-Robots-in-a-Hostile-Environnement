@@ -107,7 +107,7 @@ class RobotMission(mesa.Model):
 
     def get_total_radioactivity(self):
         """Compute total radioactivity on the map and on robots."""
-        weights = {"green": 1, "yellow": 2, "red": 3}
+        weights = {"green": 1, "yellow": 2, "red": 4}
         total_radio = 0
         
         # In the grid
