@@ -13,14 +13,16 @@ from communication.message.Message import Message
 from communication.message.MessagePerformative import MessagePerformative
 
 
-class RobotAgent(mesa.Agent):
+class RobotAgent(CommunicatingAgent):
     """Base class for all robot agents."""
 
-    def __init__(self, model):
-        super().__init__(model)
+    def __init__(self, model, name):
+        super().__init__(model, name)
         self.knowledge = {
             'inventory': [],
-            'last_percepts': {}
+            'last_percepts': {},
+            'single_waste_steps':0,
+            'waiting_for_response': False
         }
 
     def step(self):
