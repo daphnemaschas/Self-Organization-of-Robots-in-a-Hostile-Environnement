@@ -32,7 +32,7 @@ Afin de lever les ambiguïtés du sujet, les agents suivent les règles de compo
 
 ### Robot Rouge (Red Robot)
 - **Zone d'évolution :** Accès total ($Z_1, Z_2, Z_3$).
-- **Action de collecte :** Ramasse **1 seul déchet rouge** à la fois.
+- **Action de collecte :** Ramasse **1 seul déchet** à la fois (en priorité les rouges qui ont le niveau de radioactivité le plus élevé).
 - **Action finale :** Transporte le déchet rouge vers la "Waste Disposal Zone" en $Z_3$. Une fois déposé ici, le déchet est considéré comme "traité" et sort du calcul de radioactivité active.
 
 ## 4. Objectif Global et Métriques
