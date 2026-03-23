@@ -104,6 +104,7 @@ class RobotAgent(CommunicatingAgent):
 class GreenAgent(RobotAgent):
     def __init__(self, model, name):
         super().__init__(model, name)
+        self.color = "green"
 
     def deliberate(self, knowledge):
         percepts = knowledge['last_percepts']
@@ -218,6 +219,7 @@ class YellowAgent(RobotAgent):
     def __init__(self, model, name, patrol=False):
         super().__init__(model, name)
         self.patrol = patrol
+        self.color = "yellow"
 
     def deliberate(self, knowledge):
         percepts = knowledge['last_percepts']
@@ -279,6 +281,7 @@ class RedAgent(RobotAgent):
     def __init__(self,model, name, patrol=False):
         super().__init__(model, name)
         self.patrol = patrol
+        self.color = "red"
     
     def deliberate(self, knowledge):
         percepts = knowledge['last_percepts']

@@ -179,7 +179,7 @@ class RobotMission(mesa.Model):
                 performative = action[1]
                 if performative == MessagePerformative.CFP:
                     # Sends a cry for help
-                    content = {"pos": agent.pos}
+                    content = {"pos": agent.pos, "waste_type": agent.color}
                     for other in self.agents:
                             if isinstance(other, type(agent)) and other.get_name() != agent.get_name():
                                 msg = Message(agent.get_name(), other.get_name(), performative, content)
