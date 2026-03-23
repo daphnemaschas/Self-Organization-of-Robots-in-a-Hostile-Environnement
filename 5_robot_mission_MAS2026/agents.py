@@ -131,23 +131,28 @@ class GreenAgent(RobotAgent):
         # Other states: communication, waiting,...
         elif state == "READING_MAILBOX":
             if self.knowledge.get('received_cfp'):
+                # Received a message from someone asking for help, answers saying he'll come
                 self.knowledge['state'] = "WAITING_CONFIRM"
                 self.knowledge['received_cfp'] = False
                 return ("send_message", MessagePerformative.PROPOSE)
             else:
+                # No one asked for help, he sends a message saying he needs help
                 self.knowledge['state'] = "WAITING_ACCEPT"
                 return ("send_message", MessagePerformative.CFP)
         
         elif state == "WAITING_ACCEPT":
             if self.knowledge.get('received_propose'):
+                # Someone ansered his cry for help, accept his proposal
                 self.knowledge['state'] = "WAITING_INFORM"
                 self.knowledge['received_propose'] = False
                 return ("send_message", MessagePerformative.ACCEPT_PROPOSAL)
             else:
+                # Wait until someone answers
                 return ("read_messages",)
         
         elif state == "WAITING_CONFIRM":
             if self.knowledge.get('received_accept'):
+                # His proposal was accepted, he now moves towards the target posiion
                 self.knowledge['state'] = "MOVING_TO_ROBOT"
                 self.knowledge['received_accept'] = False
                 return ("move", self.knowledge.get('target_pos', self.pos)) # TODO ?
@@ -156,9 +161,10 @@ class GreenAgent(RobotAgent):
             
         elif state == "MOVING_TO_ROBOT":
             if self.pos == self.knowledge.get('target_pos'):
+                # If he has reached the robot, sends a message saying he's here
                 self.knowledge['state'] = "WANDERING" # Repart au comportement usuel ou peut etre donne a un autre robot
                 self.knowledge['single_waste_steps'] = 0 
-                return ("send_message", MessagePerformative.INFORM) # PAS SURE
+                return ("send_message", MessagePerformative.INFORM)
             else:
                 return ("move", self.knowledge['target_pos']) 
 
