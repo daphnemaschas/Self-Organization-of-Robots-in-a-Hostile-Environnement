@@ -71,6 +71,13 @@ class GreenAgent(RobotAgent):
     def deliberate(self, knowledge):
         percepts = knowledge['last_percepts']
         inventory = knowledge['inventory']
+
+        # Count single waste steps
+        green_wastes = [w for w in inventory if w.waste_type == "green"]
+        if len(green_wastes) == 1:
+            self.knowledge['single_waste_steps'] += 1
+        else:
+            self.knowledge['single_waste_steps'] = 0
         
         # 1. If 2 green -> Transform
         if len([w for w in inventory if w.waste_type == "green"]) >= 2:
@@ -122,6 +129,13 @@ class YellowAgent(RobotAgent):
         inventory = knowledge['inventory']
         z1_end = self.model.width // 3
         z2_end = 2 * (self.model.width // 3)
+
+        # Count single waste steps
+        yellow_wastes = [w for w in inventory if w.waste_type == "yellow"]
+        if len(yellow_wastes) == 1:
+            self.knowledge['single_waste_steps'] += 1
+        else:
+            self.knowledge['single_waste_steps'] = 0
 
         # 1. Transformation
         if len([w for w in inventory if w.waste_type == "yellow"]) >= 2:
