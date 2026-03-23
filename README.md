@@ -52,5 +52,5 @@ La performance d'une stratégie (ex: avec ou sans communication) est évaluée p
 ## 5. Installation et Exécution
 1. Clonez le dépôt.
 2. Installez les dépendances : `pip install -r requirements.txt`.
-3. Lancez la simulation : `python main.py`.
+3. Lancez la simulation : `python run.py`.
 4. Les graphiques de radioactivité sont générés automatiquement à la fin de l'exécution dans le dossier `/results`.
