@@ -8,6 +8,10 @@ This module defines the robot agents with communication capabilities (Step 2).
 
 import mesa
 import random
+from communication.agent.CommunicatingAgent import CommunicatingAgent
+from communication.message.Message import Message
+from communication.message.MessagePerformative import MessagePerformative
+
 
 class RobotAgent(mesa.Agent):
     """Base class for all robot agents."""
