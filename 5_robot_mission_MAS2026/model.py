@@ -95,12 +95,12 @@ class RobotMission(mesa.Model):
 
     def _setup_robots(self, z1, z2):
         """Helper to initialize robots."""
-        for i in range(self.n_green_robots, f"GreenBot_{i}"):
-            self.add_robot(GreenAgent, (random.randrange(z1), random.randrange(self.height)))
-        for i in range(self.n_yellow_robots, f"YellowBot_{i}"):
-            self.add_robot(YellowAgent, (random.randrange(z1, z2), random.randrange(self.height)))
-        for i in range(self.n_red_robots, f"RedBot_{i}"):
-            self.add_robot(RedAgent, (random.randrange(z2, self.width), random.randrange(self.height)))
+        for i in range(self.n_green_robots):
+            self.add_robot(GreenAgent, (random.randrange(z1), random.randrange(self.height)), f"GreenBot_{i}")
+        for i in range(self.n_yellow_robots):
+            self.add_robot(YellowAgent, (random.randrange(z1, z2), random.randrange(self.height)), f"YellowBot_{i}")
+        for i in range(self.n_red_robots):
+            self.add_robot(RedAgent, (random.randrange(z2, self.width), random.randrange(self.height)), f"RedBot_{i}")
 
     @staticmethod
     def count_waste(model, waste_type):
@@ -137,8 +137,8 @@ class RobotMission(mesa.Model):
                     
         return total_radio
 
-    def add_robot(self, agent_class, pos):
-        robot = agent_class(self)
+    def add_robot(self, agent_class, pos, name):
+        robot = agent_class(self, name)
         self.grid.place_agent(robot, pos)
 
     def save_data(self, filename="data/simulation_log.csv"):
