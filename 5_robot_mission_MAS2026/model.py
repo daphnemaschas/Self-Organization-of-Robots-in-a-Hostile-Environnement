@@ -36,7 +36,7 @@ class RobotMission(mesa.Model):
         self._instanciate_message_service()
 
         self.grid = mesa.space.MultiGrid(width, height, torus=False)
-        self.message_board = [] # Step 2: Communication
+        self.message_history= []
 
         # Define zone boundaries
         z1_end = width // 3
@@ -76,7 +76,7 @@ class RobotMission(mesa.Model):
                 "Yellow_Waste": lambda m: self.count_waste(m, "yellow"),
                 "Red_Waste": lambda m: self.count_waste(m, "red"),
                 "Total_Radioactivity": self.get_total_radioactivity,
-                "Messages": lambda m: len(m.message_board)
+                "Messages": lambda m: len(m.message_history)
             }
         )
 
@@ -158,8 +158,8 @@ class RobotMission(mesa.Model):
         self.datacollector.collect(self)
         self.agents.shuffle_do("step")
 
-        if self.steps > 0 and self.steps % 50 == 0:
-            self.save_data(f"data/sim_step_{self.steps}.csv")
+        # if self.steps > 0 and self.steps % 50 == 0:
+        #     self.save_data(f"data/sim_step_{self.steps}.csv")
 
         total_wastes = (self.count_waste(self, "green") + 
                         self.count_waste(self, "yellow") + 
@@ -181,21 +181,26 @@ class RobotMission(mesa.Model):
                     # Sends a cry for help
                     content = {"pos": agent.pos, "waste_type": agent.color}
                     for other in self.agents:
-                            if isinstance(other, type(agent)) and other.get_name() != agent.get_name():
+                            if isinstance(other, type(agent)) and hasattr(other, "get_name") and hasattr(other, "color") and other.get_name() != agent.get_name() and other.color == agent.color:
                                 msg = Message(agent.get_name(), other.get_name(), performative, content)
                                 agent.send_message(msg)
+                                self.message_history.append(str(msg))
+
                 elif performative == MessagePerformative.PROPOSE:
                     # Answers a demand for help
                     receiver = agent.knowledge.get('initiator_id')
                     if receiver:
                         msg = Message(agent.get_name(), receiver, performative, None)
                         agent.send_message(msg)
+                        self.message_history.append(str(msg))
+
                 elif performative == MessagePerformative.ACCEPT_PROPOSAL:
                     # Accepts the proposal of one participant
                     receiver = agent.knowledge.get('participant_id')
                     if receiver:
                         msg = Message(agent.get_name(), receiver, performative, None)
                         agent.send_message(msg)
+                        self.message_history.append(str(msg))
                 
                 elif performative == MessagePerformative.INFORM:
                         # Informs the initiator that he is here
@@ -203,6 +208,7 @@ class RobotMission(mesa.Model):
                         if receiver:
                             msg = Message(agent.get_name(), receiver, performative, None)
                             agent.send_message(msg)
+                            self.message_history.append(str(msg))
             else:
                 self.execute_action(agent, action)
         

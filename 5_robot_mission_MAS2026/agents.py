@@ -213,7 +213,7 @@ class GreenAgent(RobotAgent):
             else:
                 return ("read_messages",)
         
-        return None
+        return ("move", self.pos)
 
 class YellowAgent(RobotAgent):
     def __init__(self, model, name, patrol=False):
@@ -275,7 +275,7 @@ class YellowAgent(RobotAgent):
         # 6. Default: Random exploration within Z2
         neighbors = [p for p in percepts.keys() if z1_end <= p[0] < z2_end]
         if neighbors: return ("move", random.choice(neighbors))
-        return None
+        return ("move", self.pos)
 
 class RedAgent(RobotAgent):
     def __init__(self,model, name, patrol=False):
@@ -344,4 +344,5 @@ class RedAgent(RobotAgent):
         # 5. Default: Random exploration within Z3
         neighbors = [p for p in percepts.keys() if p[0] >= z2_end]
         if neighbors: return ("move", random.choice(neighbors))
-        return None
+        
+        return ("move", self.pos)

@@ -50,9 +50,9 @@ class MessageService:
     def dispatch_message(self, message):
         """ Dispatch the message to the right agent.
         """
-       
-        
-        self.find_agent_from_name(message.get_dest()).receive_message(message)
+        agent = self.find_agent_from_name(message.get_dest())
+        if agent is not None:
+            agent.receive_message(message)
 
     def dispatch_messages(self):
         """ Proceed each message received by the message service.
@@ -69,6 +69,5 @@ class MessageService:
         
         for agent in self.__model.agents:
         
-            if agent.get_name() == agent_name:
-            
+            if hasattr(agent, "get_name") and agent.get_name() == agent_name:
                 return agent

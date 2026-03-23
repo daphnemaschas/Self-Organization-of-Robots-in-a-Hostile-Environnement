@@ -6,7 +6,7 @@ Members: Maxence Rossignol, Antoine Yezou, Daphné Maschas
 This module defines the visualization for the RobotMission simulation using Mesa 3.x (Solara).
 Following EXACTLY the pattern from the Wolf-Sheep example in Mesa 3.5.1.
 """
-
+import solara
 import mesa
 from mesa.visualization import SolaraViz, SpaceRenderer
 from mesa.visualization.components import AgentPortrayalStyle, make_plot_component
@@ -53,6 +53,22 @@ def agent_portrayal(agent):
         portrayal.update(("alpha", 0))
 
     return portrayal
+
+@solara.component
+def MessageBoardComponent(model):
+    """Composant Solara personnalisé pour afficher l'historique des messages."""
+    
+    solara.Markdown("### Historique des Communications")
+    
+    if not hasattr(model, 'message_history') or len(model.message_history) == 0:
+        solara.Info("Aucun message reçu pour le moment.")
+        return
+
+    recent_messages = model.message_history[-15:]
+    
+    with solara.Column(style={"max-height": "300px", "overflow-y": "auto", "background-color": "#f8f9fa", "padding": "10px", "border-radius": "5px"}):
+        for i, msg_str in enumerate(reversed(recent_messages)): # Afficher du plus récent au plus ancien
+            solara.Text(f"- {msg_str}")
 
 # 1. Setup Model and Parameters
 model_params = {
@@ -137,6 +153,6 @@ page = SolaraViz(
     renderer,
     model_params=model_params,
     name="Robot Mission MAS 2026",
-    components=[waste_plot, radio_plot]
+    components=[waste_plot, radio_plot, MessageBoardComponent]
 )
 
