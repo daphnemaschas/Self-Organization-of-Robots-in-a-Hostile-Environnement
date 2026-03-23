@@ -14,6 +14,9 @@ class MessagePerformative(Enum):
     ARGUE = 105
     QUERY_REF = 106
     INFORM_REF = 107
+    CFP = 108              # Call For Proposal
+    ACCEPT_PROPOSAL = 109
+    INFORM = 110
 
     def __str__(self):
         """Returns the name of the enum item.
