@@ -78,6 +78,10 @@ class GreenAgent(RobotAgent):
             self.knowledge['single_waste_steps'] += 1
         else:
             self.knowledge['single_waste_steps'] = 0
+
+        # 0. If >= 10 steps with single waste, then communicate
+        if self.knowledge['single_waste_steps'] >= 10:
+            return ("communicate",)
         
         # 1. If 2 green -> Transform
         if len([w for w in inventory if w.waste_type == "green"]) >= 2:
@@ -136,7 +140,11 @@ class YellowAgent(RobotAgent):
             self.knowledge['single_waste_steps'] += 1
         else:
             self.knowledge['single_waste_steps'] = 0
-
+        
+        # 0. If >= 10 steps with single waste, then communicate
+        if self.knowledge['single_waste_steps'] >= 10:
+            return ("communicate",)
+        
         # 1. Transformation
         if len([w for w in inventory if w.waste_type == "yellow"]) >= 2:
             return ("transform",)
