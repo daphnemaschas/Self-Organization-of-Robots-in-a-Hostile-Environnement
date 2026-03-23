@@ -23,17 +23,28 @@ Afin de lever les ambiguïtés du sujet, les agents suivent les règles de compo
 - **Action de collecte :** Se déplace pour ramasser jusqu'à **2 déchets verts**.
 - **Action de transformation :** Une fois 2 déchets en possession, il les fusionne en **1 déchet jaune**.
 - **Action de livraison :** Doit déposer le déchet jaune à la frontière est de $Z_1$ (accessible aux robots jaunes).
+- **Connaissances**: Peut savoir le nombre de déchets verts.
 
 ### Robot Jaune (Yellow Robot)
 - **Zone d'évolution :** Peut circuler dans les zones $Z_1$ et $Z_2$.
 - **Action de collecte :** Ramasse jusqu'à **2 déchets jaunes**.
 - **Action de transformation :** Une fois 2 déchets en possession, il les fusionne en **1 déchet rouge**.
 - **Action de livraison :** Doit déposer le déchet rouge à la frontière est de $Z_2$ (accessible aux robots rouges).
+- **Connaissances**: Peut savoir le nombre de déchets verts et jaunes.
 
 ### Robot Rouge (Red Robot)
 - **Zone d'évolution :** Accès total ($Z_1, Z_2, Z_3$).
 - **Action de collecte :** Ramasse **1 seul déchet** à la fois (en priorité les rouges qui ont le niveau de radioactivité le plus élevé).
 - **Action finale :** Transporte le déchet rouge vers la "Waste Disposal Zone" en $Z_3$. Une fois déposé ici, le déchet est considéré comme "traité" et sort du calcul de radioactivité active.
+- **Connaissances**: Peut savoir le nombre de déchets verts, jaunes et rouges.
+
+### Communication
+
+Si un robot (jaune ou vert) possède un seul déchêt vert dans son inventaire depuis plus de n_steps, il lit sa boîte mail:
+- S'il y a un mail d'un autre robot d'une même couleur proposant de mettre en commun leurs déchêts il envoie un mail pour proposer de venir l'aider et attends le step suivant pour savoir si sa proposition a été acceptée.
+    - Si elle a été acceptée il rejoint la position donnée dans le message
+    - Si il n'y a pas eu de réponse et qu'il n'y a pas d'autre demande dans sa boite mail, il envoie une demande d'aide puis passe en mode lecture en attendant une réponse.
+- S'il n'y a pas de mail non répondu, il envoie une demande d'aide puis passe en mode lecture en attendant une réponse.
 
 ## 4. Objectif Global et Métriques
 L'objectif est d'optimiser l'organisation collective pour minimiser l'impact radioactif durant la mission.
