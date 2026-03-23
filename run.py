@@ -8,6 +8,7 @@ Main script to launch the RobotMission simulation using Solara (Mesa 3.x).
 
 import subprocess
 import os
+import signal
 import sys
 
 if __name__ == "__main__":
@@ -20,7 +21,6 @@ if __name__ == "__main__":
     
     print(f"Launching Solara server for {server_path}...")
     try:
-        # We add the package folder to PYTHONPATH so that server.py can import model/agents
         env = os.environ.copy()
         pkg_path = os.path.dirname(server_path)
         if "PYTHONPATH" in env:
@@ -28,10 +28,24 @@ if __name__ == "__main__":
         else:
             env["PYTHONPATH"] = pkg_path
 
-        # We use 'uv run solara run' to ensure the environment is correctly set up
         cmd = ["uv", "run", "solara", "run", server_path]
-        subprocess.run(cmd, env=env, check=True)
+        
+        if sys.platform == "win32":
+            process = subprocess.Popen(cmd, env=env, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+        else:
+            process = subprocess.Popen(cmd, env=env, start_new_session=True)
+            
+        process.wait()
+
     except KeyboardInterrupt:
+        if sys.platform == "win32":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(process.pid)], 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL
+            )
+        else:
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
         print("\nSimulation stopped.")
     except Exception as e:
         print(f"Failed to launch simulation: {e}")
