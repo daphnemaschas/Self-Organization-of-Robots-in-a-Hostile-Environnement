@@ -26,6 +26,41 @@ class RobotAgent(CommunicatingAgent):
             'state': 'WANDERING'
         }
         self.n_steps = 10
+    
+    def handle_messages(self):
+        messages = self.get_new_messages()
+        
+        for msg in messages:
+            perf = msg.get_performative()
+            
+            if perf == MessagePerformative.CFP:
+                self._handle_cfp(msg)
+            elif perf == MessagePerformative.PROPOSE:
+                self._handle_propose(msg)
+            elif perf == MessagePerformative.ACCEPT_PROPOSAL:
+                self._handle_accept(msg)
+            elif perf == MessagePerformative.INFORM:
+                self._handle_inform(msg)
+
+    def _handle_cfp(self, msg):
+        self.knowledge['received_cfp'] = True
+        self.knowledge['initiator_id'] = msg.get_exp()
+        
+        content = msg.get_content()
+        if isinstance(content, dict) and 'pos' in content:
+            self.knowledge['target_pos'] = content['pos']
+
+    def _handle_propose(self, msg):
+        self.knowledge['received_propose'] = True
+        self.knowledge['participant_id'] = msg.get_exp()
+
+    def _handle_accept(self, msg):
+        """Gère la confirmation que notre proposition a été acceptée"""
+        self.knowledge['received_accept'] = True
+
+    def _handle_inform(self, msg):
+        """Gère la confirmation que l'action est terminée (le déchet a été déposé)"""
+        self.knowledge['received_inform'] = True
 
     def step(self):
         self.step_agent()
@@ -67,8 +102,8 @@ class RobotAgent(CommunicatingAgent):
         return None
 
 class GreenAgent(RobotAgent):
-    def __init__(self, model):
-        super().__init__(model)
+    def __init__(self, model, name):
+        super().__init__(model, name)
 
     def deliberate(self, knowledge):
         percepts = knowledge['last_percepts']
@@ -103,7 +138,7 @@ class GreenAgent(RobotAgent):
                     # Move East
                     return ("move", (self.pos[0] + 1, self.pos[1]))
                 elif self.pos[0] == target_x:
-                    self.model.do(self, ("post_message", {"type": "waste_ready", "waste": "yellow", "pos": self.pos}))
+                    # self.model.do(self, ("post_message", {"type": "waste_ready", "waste": "yellow", "pos": self.pos}))
                     return ("drop",)
                 else:
                     # Should not happen for GreenAgent, but move West if it does
@@ -142,7 +177,7 @@ class GreenAgent(RobotAgent):
         
         elif state == "WAITING_ACCEPT":
             if self.knowledge.get('received_propose'):
-                # Someone ansered his cry for help, accept his proposal
+                # Someone answered his cry for help, accept his proposal
                 self.knowledge['state'] = "WAITING_INFORM"
                 self.knowledge['received_propose'] = False
                 return ("send_message", MessagePerformative.ACCEPT_PROPOSAL)
@@ -180,8 +215,8 @@ class GreenAgent(RobotAgent):
         return None
 
 class YellowAgent(RobotAgent):
-    def __init__(self, model, patrol=False):
-        super().__init__(model)
+    def __init__(self, model, name, patrol=False):
+        super().__init__(model, name)
         self.patrol = patrol
 
     def deliberate(self, knowledge):
@@ -197,10 +232,6 @@ class YellowAgent(RobotAgent):
         else:
             self.knowledge['single_waste_steps'] = 0
         
-        # 0. If >= 10 steps with single waste, then communicate
-        if self.knowledge['single_waste_steps'] >= 10:
-            return ("communicate",)
-        
         # 1. Transformation
         if len([w for w in inventory if w.waste_type == "yellow"]) >= 2:
             return ("transform",)
@@ -212,7 +243,7 @@ class YellowAgent(RobotAgent):
             if self.pos[0] < target_x:
                 return ("move", (self.pos[0] + 1, self.pos[1]))
             elif self.pos[0] == target_x:
-                self.model.do(self, ("post_message", {"type": "waste_ready", "waste": "red", "pos": self.pos}))
+                # self.model.do(self, ("post_message", {"type": "waste_ready", "waste": "red", "pos": self.pos}))
                 return ("drop",)
             else:
                 return ("move", (self.pos[0] - 1, self.pos[1]))
@@ -245,8 +276,8 @@ class YellowAgent(RobotAgent):
         return None
 
 class RedAgent(RobotAgent):
-    def __init__(self,model, patrol=False):
-        super().__init__(model)
+    def __init__(self,model, name, patrol=False):
+        super().__init__(model, name)
         self.patrol = patrol
     
     def deliberate(self, knowledge):

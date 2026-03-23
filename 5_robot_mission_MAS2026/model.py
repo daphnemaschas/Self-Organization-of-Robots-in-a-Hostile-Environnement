@@ -9,6 +9,9 @@ This module defines the RobotMission model and its central logic.
 import os
 import mesa
 import random
+
+from communication.message.Message import Message
+from communication.message.MessagePerformative import MessagePerformative
 from communication.message.MessageService import MessageService
 from agents import GreenAgent, YellowAgent, RedAgent
 from objects import RadioactivitySource, Waste, WasteDisposalZone
@@ -79,9 +82,7 @@ class RobotMission(mesa.Model):
 
     def _instanciate_message_service(self):
         """Helper to instanciate MessageService"""
-        try:
-            MessageService.get_instance()
-        except:
+        if MessageService.get_instance() is None:
             self.__messages_service = MessageService(self, instant_delivery=False)
     
     def _place_initial_wastes(self, g, y, r, z1, z2):
@@ -172,10 +173,36 @@ class RobotMission(mesa.Model):
     def do(self, agent, action):
         """Processes an agent's action and returns percepts."""
         if action:
-            if action[0] == "post_message":
-                self.message_board.append(action[1])
-            elif action[0] == "read_messages":
-                pass # Already available via agent.model.message_board
+            if action[0] == "read_messages":
+                agent.handle_messages()
+            elif action[0] == "send_message":
+                performative = action[1]
+                if performative == MessagePerformative.CFP:
+                    # Sends a cry for help
+                    content = {"pos": agent.pos}
+                    for other in self.agents:
+                            if isinstance(other, type(agent)) and other.get_name() != agent.get_name():
+                                msg = Message(agent.get_name(), other.get_name(), performative, content)
+                                agent.send_message(msg)
+                elif performative == MessagePerformative.PROPOSE:
+                    # Answers a demand for help
+                    receiver = agent.knowledge.get('initiator_id')
+                    if receiver:
+                        msg = Message(agent.get_name(), receiver, performative, None)
+                        agent.send_message(msg)
+                elif performative == MessagePerformative.ACCEPT_PROPOSAL:
+                    # Accepts the proposal of one participant
+                    receiver = agent.knowledge.get('participant_id')
+                    if receiver:
+                        msg = Message(agent.get_name(), receiver, performative, None)
+                        agent.send_message(msg)
+                
+                elif performative == MessagePerformative.INFORM:
+                        # Informs the initiator that he is here
+                        receiver = agent.knowledge.get('initiator_id')
+                        if receiver:
+                            msg = Message(agent.get_name(), receiver, performative, None)
+                            agent.send_message(msg)
             else:
                 self.execute_action(agent, action)
         
