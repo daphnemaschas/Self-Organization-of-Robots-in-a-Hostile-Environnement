@@ -174,7 +174,7 @@ class RobotMission(mesa.Model):
         
         if total_wastes == 0:
             self.running = False
-            self.save_simulation_data("data/final_results.csv")
+            self.save_data("data/final_results.csv")
             print("Mission accomplie : tous les déchets ont été évacués.")
 
     def do(self, agent, action):
