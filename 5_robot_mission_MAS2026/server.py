@@ -10,6 +10,7 @@ import solara
 import mesa
 from mesa.visualization import SolaraViz, SpaceRenderer
 from mesa.visualization.components import AgentPortrayalStyle, make_plot_component
+from mesa.visualization.utils import update_counter
 from model import RobotMission
 from agents import GreenAgent, YellowAgent, RedAgent
 from objects import Waste, RadioactivitySource, WasteDisposalZone
@@ -57,6 +58,7 @@ def agent_portrayal(agent):
 @solara.component
 def MessageBoardComponent(model):
     """Composant Solara personnalisé pour afficher l'historique des messages."""
+    update_counter.get()
     
     solara.Markdown("### Historique des Communications")
     
@@ -68,10 +70,10 @@ def MessageBoardComponent(model):
         return
     
     recent_messages = messages[-15:]
+    messages_text = "\n".join([f"- {msg_str}" for msg_str in reversed(recent_messages)])
     
     with solara.Column(style={"max-height": "300px", "overflow-y": "auto", "background-color": "#f8f9fa", "padding": "10px", "border-radius": "5px"}):
-        for msg_str in reversed(recent_messages): # Afficher du plus récent au plus ancien
-            solara.Text(f"- {msg_str}")
+        solara.Markdown(messages_text)
 
 # 1. Setup Model and Parameters
 model_params = {
@@ -137,7 +139,7 @@ renderer = SpaceRenderer(
 ).setup_agents(agent_portrayal)
 
 # Added following the wolf_sheep example
-renderer.draw_agents()
+renderer.render()
 
 # Add a graph for waste stocks
 waste_plot = make_plot_component({
