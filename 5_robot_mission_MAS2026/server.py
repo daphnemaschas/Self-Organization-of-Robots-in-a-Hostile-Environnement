@@ -60,14 +60,17 @@ def MessageBoardComponent(model):
     
     solara.Markdown("### Historique des Communications")
     
-    if not hasattr(model, 'message_history') or len(model.message_history) == 0:
+    messages = getattr(model, 'message_history', [])
+    msg_count = len(messages)
+    
+    if msg_count == 0:
         solara.Info("Aucun message reçu pour le moment.")
         return
-
-    recent_messages = model.message_history[-15:]
+    
+    recent_messages = messages[-15:]
     
     with solara.Column(style={"max-height": "300px", "overflow-y": "auto", "background-color": "#f8f9fa", "padding": "10px", "border-radius": "5px"}):
-        for i, msg_str in enumerate(reversed(recent_messages)): # Afficher du plus récent au plus ancien
+        for msg_str in reversed(recent_messages): # Afficher du plus récent au plus ancien
             solara.Text(f"- {msg_str}")
 
 # 1. Setup Model and Parameters
