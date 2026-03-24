@@ -168,17 +168,20 @@ class GreenAgent(RobotAgent):
         elif state == "READING_MAILBOX":
             if self.knowledge.get('received_cfp'):
                 # Received a message from someone asking for help, answers saying he'll come
+                print(f'[{self.get_name()}] I can help you !') # DEBUG
                 self.knowledge['state'] = "WAITING_CONFIRM"
                 self.knowledge['received_cfp'] = False
                 return ("send_message", MessagePerformative.PROPOSE)
             else:
                 # No one asked for help, he sends a message saying he needs help
+                print(f'[{self.get_name()}] Hey ! I need help') # DEBUG
                 self.knowledge['state'] = "WAITING_ACCEPT"
                 return ("send_message", MessagePerformative.CFP)
         
         elif state == "WAITING_ACCEPT":
             if self.knowledge.get('received_propose'):
                 # Someone answered his cry for help, accept his proposal
+                print(f'[{self.get_name()}] Please come I am waiting for you !')
                 self.knowledge['state'] = "WAITING_INFORM"
                 self.knowledge['received_propose'] = False
                 return ("send_message", MessagePerformative.ACCEPT_PROPOSAL)
@@ -189,28 +192,33 @@ class GreenAgent(RobotAgent):
         elif state == "WAITING_CONFIRM":
             if self.knowledge.get('received_accept'):
                 # His proposal was accepted, he now moves towards the target posiion
+                print(f'[{self.get_name()}] I read your acceptation, I am on my way to {self.knowledge.get('target_pos')}!') # DEBUG
                 self.knowledge['state'] = "MOVING_TO_ROBOT"
                 self.knowledge['received_accept'] = False
                 return ("move", self.knowledge.get('target_pos', self.pos)) # TODO ?
             else:
-                return ("move", self.pos)
+                return ("read_messages", self.pos)
             
         elif state == "MOVING_TO_ROBOT":
             if self.pos == self.knowledge.get('target_pos'):
+                print(f'[{self.get_name()}] I have arrived !') # DEBUG
                 self.knowledge['state'] = "SENDING_INFORM"
                 self.knowledge['single_waste_steps'] = 0 
                 return ("drop",)
             else:
+                print(f'[{self.get_name()}] I am coming to {self.knowledge['target_pos']} !') # DEBUG
                 return ("move", self.knowledge['target_pos']) 
         
         elif state == "SENDING_INFORM":
             # Informs the initiator that the waste is here
-            self.knowledge['state'] = "WANDERING" 
+            print(f'[{self.get_name()}] I inform you that I have arrived !') # DEBUG
+            self.knowledge['state'] = "FLEEING" 
             self.knowledge['single_waste_steps'] = 0 
             return ("send_message", MessagePerformative.INFORM)
         
         elif state == "FLEEING":
             # Message has been sent now he flees
+            print(f'[{self.get_name()}] Now I am going elsewhere !') # DEBUG
             self.knowledge['state'] = "WANDERING"
             neighbors = [p for p in percepts.keys() if p != self.pos and p[0] < (self.model.width // 3)]
             if neighbors:
@@ -220,6 +228,7 @@ class GreenAgent(RobotAgent):
         elif state == "WAITING_INFORM":
             if self.knowledge.get('received_inform'):
                 # The initiator knows that the waste is here
+                print(f'[{self.get_name()}] I acknowledge that you are here !') # DEBUG
                 self.knowledge['state'] = "WANDERING"
                 self.knowledge['single_waste_steps'] = 0
                 self.knowledge['received_inform'] = False
