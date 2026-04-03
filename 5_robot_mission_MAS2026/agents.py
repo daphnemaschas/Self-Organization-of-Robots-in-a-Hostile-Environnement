@@ -123,10 +123,10 @@ class GreenAgent(RobotAgent):
                 self.knowledge['single_waste_steps'] = 0
             
             # 0. If there is no wastes on the field and it has 1 waste -> calls red
-            if total_wastes == 0:
+            if total_wastes == 0 and len(green_wastes) == 1:
                 print(f'[{self.get_name()}] Hey Red ! I need help') # DEBUG
                 self.knowledge['state'] = "WAITING_FOR_RED"
-                return ("send_message", MessagePerformative.CFP, "need_red")
+                return ("send_message", MessagePerformative.CFP, "red")
             
             # 0. If single_waste_steps >= n_steps
             if self.knowledge['single_waste_steps'] >= self.n_steps:
@@ -191,7 +191,7 @@ class GreenAgent(RobotAgent):
                 # No one asked for help, he sends a message saying he needs help
                 print(f'[{self.get_name()}] Hey ! I need help') # DEBUG
                 self.knowledge['state'] = "WAITING_ACCEPT"
-                return ("send_message", MessagePerformative.CFP, "need_green")
+                return ("send_message", MessagePerformative.CFP, "green")
         
         elif state == "WAITING_ACCEPT":
             if self.knowledge.get('received_propose'):
@@ -335,61 +335,93 @@ class RedAgent(RobotAgent):
         inventory = knowledge['inventory']
         z2_end = 2 * (self.model.width // 3)
 
-        # 1. Disposal Logic
-        red_wastes = [w for w in inventory if w.waste_type == "red"]
-        if red_wastes:
-            # Check if disposal zone is in percepts (Highest priority)
+        state = knowledge.get('state', 'WANDERING')
+
+        if state == "WANDERING":
+            # 0. If there is no wastes left
+            if total_wastes == 0:
+                self.knowledge['state'] = "READING_MAILBOX"
+                return ("read_messages",)
+
+            # 1. Disposal Logic
+            red_wastes = [w for w in inventory if w.waste_type == "red"]
+            if red_wastes:
+                # Check if disposal zone is in percepts (Highest priority)
+                for pos, contents in percepts.items():
+                    if "type_WasteDisposalZone" in contents:
+                        if self.pos == pos: 
+                            knowledge['disposal_phase'] = "down" # Reset for next time
+                            return ("drop",)
+                        return ("move", pos)
+                
+                # Step-by-step search pattern
+                target_x = self.model.width - 1
+                # A. Go to eastern border
+                if self.pos[0] < target_x:
+                    return ("move", (self.pos[0] + 1, self.pos[1]))
+                
+                # B. Now at eastern border, perform vertical search
+                phase = knowledge.get('disposal_phase', "down")
+                if phase == "down":
+                    if self.pos[1] > 0:
+                        return ("move", (self.pos[0], self.pos[1] - 1))
+                    else:
+                        knowledge['disposal_phase'] = "up"
+                        return ("move", (self.pos[0], self.pos[1] + 1))
+                else: # phase == "up"
+                    if self.pos[1] < self.model.height - 1:
+                        return ("move", (self.pos[0], self.pos[1] + 1))
+                    else:
+                        knowledge['disposal_phase'] = "down"
+                        return ("move", (self.pos[0], self.pos[1] - 1))
+
+            # 2. Collection: If red waste here
+            red_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_red")
+            if red_id is not None and not red_wastes:
+                return ("pick_up", red_id)
+
+            # 3. Search for nearby waste in percepts
             for pos, contents in percepts.items():
-                if "type_WasteDisposalZone" in contents:
-                    if self.pos == pos: 
-                        knowledge['disposal_phase'] = "down" # Reset for next time
-                        return ("drop",)
+                if "waste_red" in contents:
                     return ("move", pos)
-            
-            # Step-by-step search pattern
-            target_x = self.model.width - 1
-            # A. Go to eastern border
-            if self.pos[0] < target_x:
-                return ("move", (self.pos[0] + 1, self.pos[1]))
-            
-            # B. Now at eastern border, perform vertical search
-            phase = knowledge.get('disposal_phase', "down")
-            if phase == "down":
-                if self.pos[1] > 0:
-                    return ("move", (self.pos[0], self.pos[1] - 1))
+
+            # 4. Patrol Z2/Z3 border (Waiting for Yellow robots) if is needs to patrol
+            if not inventory and self.patrol:
+                target_x = z2_end # First column of Z3
+                if self.pos[0] > target_x:
+                    return ("move", (self.pos[0] - 1, self.pos[1]))
+                elif self.pos[0] < target_x:
+                    return ("move", (self.pos[0] + 1, self.pos[1]))
                 else:
-                    knowledge['disposal_phase'] = "up"
-                    return ("move", (self.pos[0], self.pos[1] + 1))
-            else: # phase == "up"
-                if self.pos[1] < self.model.height - 1:
-                    return ("move", (self.pos[0], self.pos[1] + 1))
-                else:
-                    knowledge['disposal_phase'] = "down"
-                    return ("move", (self.pos[0], self.pos[1] - 1))
+                    adj_y = [p for p in percepts.keys() if p[0] == target_x and p != self.pos]
+                    if adj_y: return ("move", random.choice(adj_y))
 
-        # 2. Collection: If red waste here
-        red_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_red")
-        if red_id is not None and not red_wastes:
-            return ("pick_up", red_id)
-
-        # 3. Search for nearby waste in percepts
-        for pos, contents in percepts.items():
-            if "waste_red" in contents:
-                return ("move", pos)
-
-        # 4. Patrol Z2/Z3 border (Waiting for Yellow robots) if is needs to patrol
-        if not inventory and self.patrol:
-            target_x = z2_end # First column of Z3
-            if self.pos[0] > target_x:
-                return ("move", (self.pos[0] - 1, self.pos[1]))
-            elif self.pos[0] < target_x:
-                return ("move", (self.pos[0] + 1, self.pos[1]))
+            # 5. Default: Random exploration within Z3
+            neighbors = [p for p in percepts.keys() if p[0] >= z2_end]
+            if neighbors: return ("move", random.choice(neighbors))
+            
+            return ("move", self.pos)
+    
+        elif state == "READING_MAILBOX":
+            if self.knowledge.get('received_cfp'):
+                print(f'[{self.get_name()}] I can help you !') 
+                self.knowledge['state'] = "WAITING_CONFIRM"
+                self.knowledge['received_cfp'] = False
+                return ("send_message", MessagePerformative.PROPOSE)
             else:
-                adj_y = [p for p in percepts.keys() if p[0] == target_x and p != self.pos]
-                if adj_y: return ("move", random.choice(adj_y))
-
-        # 5. Default: Random exploration within Z3
-        neighbors = [p for p in percepts.keys() if p[0] >= z2_end]
-        if neighbors: return ("move", random.choice(neighbors))
+                return ("read_messages",)
         
-        return ("move", self.pos)
+        elif state == "MOVING_TO_ROBOT":
+            target = self.knowledge.get('target_pos')
+            if self.pos == target:
+                print(f'[{self.get_name()}] I am coming !')
+                self.knowledge['state'] = "SENDING_INFORM"
+                return ("move", self.pos)
+            else:
+                print(f'[{self.get_name()}] En route vers {target} !')
+                return ("move", target)
+                
+        elif state == "SENDING_INFORM":
+            print(f'[{self.get_name()}] I have arrived !')
+            self.knowledge['state'] = "READING_MAILBOX"
+            return ("send_message", MessagePerformative.INFORM)
