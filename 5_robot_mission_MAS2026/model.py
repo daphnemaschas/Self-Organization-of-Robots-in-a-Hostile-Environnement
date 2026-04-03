@@ -317,7 +317,7 @@ class RobotMission(mesa.Model):
         elif isinstance(agent, YellowAgent):
             return waste.waste_type == "yellow" and len(agent.knowledge['inventory']) < 2
         elif isinstance(agent, RedAgent):
-            return waste.waste_type == "red" and len(agent.knowledge['inventory']) < 1
+            return len(agent.knowledge['inventory']) < 1
         return False
 
     def can_transform(self, agent):
