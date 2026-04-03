@@ -172,6 +172,14 @@ class GreenAgent(RobotAgent):
                 if neighbors: return ("move", random.choice(neighbors))
 
         # Other states: communication, waiting,...
+        elif state == "WAITING_FOR_RED":
+            if self.knowledge.get('received_propose', False):
+                # A red agent answered his cry for help, accept his proposal
+                print(f'[{self.get_name()}] Please red agent come I am waiting for you !') # DEBUG
+                self.knowledge['state'] = "WAITING_CONFIRM"
+                self.knowledge['received_propose'] = False
+                return ("send_message", MessagePerformative.ACCEPT_PROPOSAL)
+
         elif state == "READING_MAILBOX":
             if self.knowledge.get('received_cfp'):
                 # Received a message from someone asking for help, answers saying he'll come
