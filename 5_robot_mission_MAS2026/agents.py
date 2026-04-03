@@ -179,6 +179,9 @@ class GreenAgent(RobotAgent):
                 self.knowledge['state'] = "WAITING_CONFIRM"
                 self.knowledge['received_propose'] = False
                 return ("send_message", MessagePerformative.ACCEPT_PROPOSAL)
+            else:
+                # Wait until someone answers
+                return ("read_messages",)
 
         elif state == "READING_MAILBOX":
             if self.knowledge.get('received_cfp'):
@@ -411,6 +414,16 @@ class RedAgent(RobotAgent):
             else:
                 return ("read_messages",)
         
+        elif state == "WAITING_CONFIRM":
+            if self.knowledge.get('received_accept'):
+                # His proposal was accepted, he now moves towards the target posiion
+                print(f'[{self.get_name()}] I read your acceptation, I am on my way to {self.knowledge.get('target_pos')}!') # DEBUG
+                self.knowledge['state'] = "MOVING_TO_ROBOT"
+                self.knowledge['received_accept'] = False
+                return ("move", self.knowledge.get('target_pos', self.pos)) # TODO ?
+            else:
+                return ("read_messages", self.pos)
+        
         elif state == "MOVING_TO_ROBOT":
             target = self.knowledge.get('target_pos')
             if self.pos == target:
@@ -424,4 +437,4 @@ class RedAgent(RobotAgent):
         elif state == "SENDING_INFORM":
             print(f'[{self.get_name()}] I have arrived !')
             self.knowledge['state'] = "READING_MAILBOX"
-            return ("send_message", MessagePerformative.INFORM)
+            return ("send_message", MessagePerformative.INFORM, "red")
