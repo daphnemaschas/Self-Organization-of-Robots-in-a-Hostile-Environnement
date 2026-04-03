@@ -76,7 +76,8 @@ class RobotMission(mesa.Model):
                 "Yellow_Waste": lambda m: self.count_waste(m, "yellow"),
                 "Red_Waste": lambda m: self.count_waste(m, "red"),
                 "Total_Radioactivity": self.get_total_radioactivity,
-                "Messages": lambda m: len(m.message_history)
+                "Messages": lambda m: len(m.message_history),
+                "Total on field": lambda m: self.count_waste_on_field(m)
             }
         )
 
@@ -123,6 +124,34 @@ class RobotMission(mesa.Model):
         for agent in model.agents:
             if hasattr(agent, 'knowledge'):
                 count += len([w for w in agent.knowledge['inventory'] if w.waste_type == waste_type])
+        return count
+    
+    @staticmethod
+    def count_waste(model, waste_type):
+        """Compte les déchets d'un type précis sur la grille ET dans les inventaires."""
+        count = 0
+        # In the grid
+        for obj in model.grid.coord_iter():
+            cell_content, pos = obj
+            count += len([w for w in cell_content if isinstance(w, Waste) and w.waste_type == waste_type])
+        
+        # In agent inventory
+        for agent in model.agents:
+            if hasattr(agent, 'knowledge'):
+                count += len([w for w in agent.knowledge['inventory'] if w.waste_type == waste_type])
+        return count
+    
+    @staticmethod
+    def count_waste_on_field(model, waste_type=None):
+        """Compte les déchets uniquement sur la grille (exclut l'inventaire des agents).
+        Si waste_type est None, compte tous les déchets, sinon filtre par type."""
+        count = 0
+        for obj in model.grid.coord_iter():
+            cell_content, pos = obj
+            if waste_type:
+                count += len([w for w in cell_content if isinstance(w, Waste) and w.waste_type == waste_type])
+            else:
+                count += len([w for w in cell_content if isinstance(w, Waste)])
         return count
 
     def get_total_radioactivity(self):

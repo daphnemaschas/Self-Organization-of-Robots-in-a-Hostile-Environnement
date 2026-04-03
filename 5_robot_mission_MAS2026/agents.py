@@ -107,6 +107,7 @@ class GreenAgent(RobotAgent):
         self.color = "green"
 
     def deliberate(self, knowledge):
+        total_wastes = self.model.count_waste_on_field(self.model)
         percepts = knowledge['last_percepts']
         inventory = knowledge['inventory']
         state = self.knowledge.get('state', 'WANDERING')
@@ -120,6 +121,12 @@ class GreenAgent(RobotAgent):
                 self.knowledge['single_waste_steps'] += 1
             else:
                 self.knowledge['single_waste_steps'] = 0
+            
+            # 0. If there is no wastes on the field and it has 1 waste -> calls red
+            if total_wastes == 0:
+                print(f'[{self.get_name()}] Hey Red ! I need help') # DEBUG
+                self.knowledge['state'] = "WAITING_FOR_RED"
+                return ("send_message", MessagePerformative.CFP, "need_red")
             
             # 0. If single_waste_steps >= n_steps
             if self.knowledge['single_waste_steps'] >= self.n_steps:
@@ -176,7 +183,7 @@ class GreenAgent(RobotAgent):
                 # No one asked for help, he sends a message saying he needs help
                 print(f'[{self.get_name()}] Hey ! I need help') # DEBUG
                 self.knowledge['state'] = "WAITING_ACCEPT"
-                return ("send_message", MessagePerformative.CFP)
+                return ("send_message", MessagePerformative.CFP, "need_green")
         
         elif state == "WAITING_ACCEPT":
             if self.knowledge.get('received_propose'):
@@ -252,6 +259,7 @@ class YellowAgent(RobotAgent):
         self.color = "yellow"
 
     def deliberate(self, knowledge):
+        total_wastes = self.model.count_waste_on_field(self.model)
         percepts = knowledge['last_percepts']
         inventory = knowledge['inventory']
         z1_end = self.model.width // 3
@@ -314,6 +322,7 @@ class RedAgent(RobotAgent):
         self.color = "red"
     
     def deliberate(self, knowledge):
+        total_wastes = self.model.count_waste_on_field(self.model)
         percepts = knowledge['last_percepts']
         inventory = knowledge['inventory']
         z2_end = 2 * (self.model.width // 3)
