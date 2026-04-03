@@ -185,6 +185,13 @@ class GreenAgent(RobotAgent):
                 self.knowledge['state'] = "WAITING_INFORM"
                 self.knowledge['received_propose'] = False
                 return ("send_message", MessagePerformative.ACCEPT_PROPOSAL)
+            elif self.knowledge.get('received_cfp'):
+                # Résolution de conflit (Deadlock) : un autre agent a demandé de l'aide en même temps
+                if self.get_name() < self.knowledge.get('initiator_id', ''):
+                    print(f'[{self.get_name()}] I abandon my request to help you instead !')
+                    self.knowledge['state'] = "WAITING_CONFIRM"
+                    self.knowledge['received_cfp'] = False
+                    return ("send_message", MessagePerformative.PROPOSE)
             else:
                 # Wait until someone answers
                 return ("read_messages",)
