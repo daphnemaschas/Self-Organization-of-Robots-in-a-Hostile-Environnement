@@ -126,11 +126,16 @@ model_params = {
         "min": 0,
         "max": 50,
         "step": 1,
+    },
+    "use_memory": {
+        "type": "Checkbox",
+        "value": True,
+        "label": "Use Spatial Memory",
     }
 }
 
 # 2. Create the model instance
-model = RobotMission(width=15, height=10, initial_green_waste=15, n_green_robots=2, n_yellow_robots=2, n_red_robots=2)
+model = RobotMission(width=15, height=10, initial_green_waste=15, n_green_robots=2, n_yellow_robots=2, n_red_robots=2, use_memory=True)
 
 # 3. Setup the SpaceRenderer following the Wolf-Sheep pattern exactly
 renderer = SpaceRenderer(

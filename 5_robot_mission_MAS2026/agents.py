@@ -23,7 +23,8 @@ class RobotAgent(CommunicatingAgent):
             'last_percepts': {},
             'single_waste_steps':0,
             'waiting_for_response': False,
-            'state': 'WANDERING'
+            'state': 'WANDERING',
+            'visited_places': {}
         }
         self.n_steps = 10
     
@@ -70,12 +71,23 @@ class RobotAgent(CommunicatingAgent):
         percepts = self.model.do(self, None)
         self.knowledge['last_percepts'] = percepts
         
+        # Update memory of visited places + neighborhood
+        self.knowledge['visited_places'][self.pos] = self.knowledge['visited_places'].get(self.pos, 0) + 1
+
         # 2. Deliberate
         action = self.deliberate(self.knowledge)
-        
+
         # 3. Act and update
         new_percepts = self.model.do(self, action)
         self.knowledge['last_percepts'] = new_percepts
+
+    def _choose_move(self, neighbors):
+        """Helper to choose the next move based on spatial memory if enabled."""
+        if getattr(self.model, "use_memory", False):
+            min_visits = min(self.knowledge['visited_places'].get(p, 0) for p in neighbors)
+            least_visited = [p for p in neighbors if self.knowledge['visited_places'].get(p, 0) == min_visits]
+            return ("move", random.choice(least_visited))
+        return ("move", random.choice(neighbors))
 
     def deliberate(self, knowledge):
         raise NotImplementedError
@@ -169,7 +181,7 @@ class GreenAgent(RobotAgent):
                         return ("move", pos)
                 # Stay in Z1
                 neighbors = [p for p in percepts.keys() if p[0] < (self.model.width // 3)]
-                if neighbors: return ("move", random.choice(neighbors))
+                if neighbors: return self._choose_move(neighbors)
 
         # Other states: communication, waiting,...
         elif state == "READING_MAILBOX":
@@ -236,7 +248,7 @@ class GreenAgent(RobotAgent):
             self.knowledge['state'] = "WANDERING"
             neighbors = [p for p in percepts.keys() if p != self.pos and p[0] < (self.model.width // 3)]
             if neighbors:
-                return ("move", random.choice(neighbors))
+                return self._choose_move(neighbors)
             return ("move", self.pos)
 
         elif state == "WAITING_INFORM":
@@ -308,11 +320,11 @@ class YellowAgent(RobotAgent):
             else:
                 # Patrol vertically along the border
                 adj_y = [p for p in percepts.keys() if p[0] == target_x and p != self.pos]
-                if adj_y: return ("move", random.choice(adj_y))
+                if adj_y: return self._choose_move(adj_y)
 
         # 6. Default: Random exploration within Z2
         neighbors = [p for p in percepts.keys() if z1_end <= p[0] < z2_end]
-        if neighbors: return ("move", random.choice(neighbors))
+        if neighbors: return self._choose_move(neighbors)
         return ("move", self.pos)
 
 class RedAgent(RobotAgent):
@@ -378,10 +390,10 @@ class RedAgent(RobotAgent):
                 return ("move", (self.pos[0] + 1, self.pos[1]))
             else:
                 adj_y = [p for p in percepts.keys() if p[0] == target_x and p != self.pos]
-                if adj_y: return ("move", random.choice(adj_y))
+                if adj_y: return self._choose_move(adj_y)
 
         # 5. Default: Random exploration within Z3
         neighbors = [p for p in percepts.keys() if p[0] >= z2_end]
-        if neighbors: return ("move", random.choice(neighbors))
+        if neighbors: return self._choose_move(neighbors)
         
         return ("move", self.pos)
