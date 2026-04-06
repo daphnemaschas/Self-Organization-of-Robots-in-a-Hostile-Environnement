@@ -396,7 +396,7 @@ class RedAgent(RobotAgent):
 
             # 2. Collection: If red waste here
             red_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_red")
-            if red_id is not None and not red_wastes:
+            if red_id is not None and not wastes:
                 return ("pick_up", red_id)
 
             # 3. Search for nearby waste in percepts
@@ -452,10 +452,10 @@ class RedAgent(RobotAgent):
                 
         elif state == "SENDING_INFORM":
             print(f'[{self.get_name()}] I have arrived!')
-            self.knowledge['state'] = "WAITING_GREEN"
+            self.knowledge['state'] = "WAITING_WASTE"
             return ("send_message", MessagePerformative.INFORM)
         
-        elif state == "WAITING_GREEN":
+        elif state == "WAITING_WASTE":
             # 2b. Collection: If green waste here
             green_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_green")
             print(f'[{self.get_name()}] I am picking up {green_id}')
