@@ -112,6 +112,8 @@ class GreenAgent(RobotAgent):
         inventory = knowledge['inventory']
         state = self.knowledge.get('state', 'WANDERING')
 
+        z1_end = self.model.width // 3
+
         # Usual research mode
         if state == "WANDERING":
             
@@ -140,7 +142,6 @@ class GreenAgent(RobotAgent):
             # 2. If 1 yellow -> Move to EASTERNMOST border of Z1 and Drop
             yellow_wastes = [w for w in inventory if w.waste_type == "yellow"]
             if yellow_wastes:
-                z1_end = self.model.width // 3
                 target_x = z1_end - 1
                 if self.pos[0] < target_x:
                     # Move East
@@ -295,58 +296,182 @@ class YellowAgent(RobotAgent):
         total_wastes = self.model.count_waste_on_field(self.model)
         percepts = knowledge['last_percepts']
         inventory = knowledge['inventory']
+        state = self.knowledge.get('state', 'WANDERING')
+
         z1_end = self.model.width // 3
         z2_end = 2 * (self.model.width // 3)
 
-        # Count single waste steps
-        yellow_wastes = [w for w in inventory if w.waste_type == "yellow"]
-        if len(yellow_wastes) == 1:
-            self.knowledge['single_waste_steps'] += 1
-        else:
-            self.knowledge['single_waste_steps'] = 0
-        
-        # 1. Transformation
-        if len([w for w in inventory if w.waste_type == "yellow"]) >= 2:
-            return ("transform",)
+        # Usual research mode
+        if state == "WANDERING":
+            
+            # Update single waste steps
+            yellow_wastes = [w for w in inventory if w.waste_type == "yellow"]
+            if len(yellow_wastes) == 1:
+                self.knowledge['single_waste_steps'] += 1
+            else:
+                self.knowledge['single_waste_steps'] = 0
+            
+            # 0. If there is no wastes on the field and it has 1 waste -> calls red
+            if total_wastes == 0 and len(yellow_wastes) == 1:
+                print(f'[{self.get_name()}] Hey Red ! I need help') # DEBUG
+                self.knowledge['state'] = "WAITING_FOR_RED"
+                return ("send_message", MessagePerformative.CFP, "red")
+            
+            # 0. If single_waste_steps >= n_steps
+            if self.knowledge['single_waste_steps'] >= self.n_steps:
+                self.knowledge['state'] = "READING_MAILBOX"
+                return ("read_messages",)
+    
+            # 1. If 2 yellow -> Transform
+            if len([w for w in inventory if w.waste_type == "yellow"]) >= 2:
+                return ("transform",)
 
-        # 2. Delivery: Move to EASTERNMOST border of Z2 and Drop
-        red_wastes = [w for w in inventory if w.waste_type == "red"]
-        if red_wastes:
-            target_x = z2_end - 1
-            if self.pos[0] < target_x:
-                return ("move", (self.pos[0] + 1, self.pos[1]))
-            elif self.pos[0] == target_x:
-                # self.model.do(self, ("post_message", {"type": "waste_ready", "waste": "red", "pos": self.pos}))
+            # 2. If 1 red -> Move to EASTERNMOST border of Z2 and Drop
+            red_wastes = [w for w in inventory if w.waste_type == "red"]
+            if red_wastes:
+                target_x = z2_end - 1
+                if self.pos[0] < target_x:
+                    # Move East
+                    return ("move", (self.pos[0] + 1, self.pos[1]))
+                elif self.pos[0] == target_x:
+                    return ("drop",)
+                else:
+                    # Should not happen for Yellow, but move West if it does
+                    return ("move", (self.pos[0] - 1, self.pos[1]))
+            
+            if self.knowledge.get('ignore_waste_ticks', 0) > 0:
+                self.knowledge['ignore_waste_ticks'] -= 1
+                neighbors = [p for p in percepts.keys() if z1_end <=p[0] < z2_end]
+                if neighbors: return ("move", random.choice(neighbors))
+                return ("move", self.pos)
+
+            # 3. If yellow waste here -> Pick up
+            green_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_yellow")
+            if green_id is not None and len(inventory) < 2:
+                return ("pick_up", green_id)
+
+            # 4. Search yellow waste in percepts
+            for pos, contents in percepts.items():
+                if "waste_yellow" in contents:
+                    return ("move", pos)
+            
+            # 5. Patrol/Search within Z2 if needs more yellow waste
+            if len(inventory) < 2:
+                for pos, contents in percepts.items():
+                    if "waste_yellow" in contents:
+                        return ("move", pos)
+                # Stay in Z2
+                neighbors = [p for p in percepts.keys() if z1_end <= p[0] < z2_end]
+                if neighbors: return ("move", random.choice(neighbors))
+
+        # Other states: communication, waiting,...
+        elif state == "WAITING_FOR_RED":
+            if self.knowledge.get('received_propose', False):
+                # A red agent answered his cry for help, accept his proposal
+                print(f'[{self.get_name()}] Please red agent come I am waiting for you !') # DEBUG
+                self.knowledge['state'] = "WAITING_INFORM"
+                self.knowledge['received_propose'] = False
+                return ("send_message", MessagePerformative.ACCEPT_PROPOSAL)
+            else:
+                # Wait until someone answers
+                return ("read_messages",)
+
+        elif state == "READING_MAILBOX":
+            if self.knowledge.get('received_cfp'):
+                # Received a message from someone asking for help, answers saying he'll come
+                print(f'[{self.get_name()}] I can help you !') # DEBUG
+                self.knowledge['state'] = "WAITING_CONFIRM"
+                self.knowledge['received_cfp'] = False
+                return ("send_message", MessagePerformative.PROPOSE)
+            else:
+                # No one asked for help, he sends a message saying he needs help
+                print(f'[{self.get_name()}] Hey ! I need help') # DEBUG
+                self.knowledge['state'] = "WAITING_ACCEPT"
+                return ("send_message", MessagePerformative.CFP, "green")
+        
+        elif state == "WAITING_ACCEPT":
+            if self.knowledge.get('received_propose'):
+                # Someone answered his cry for help, accept his proposal
+                print(f'[{self.get_name()}] Please come I am waiting for you !')
+                self.knowledge['state'] = "WAITING_INFORM"
+                self.knowledge['received_propose'] = False
+                return ("send_message", MessagePerformative.ACCEPT_PROPOSAL)
+            elif self.knowledge.get('received_cfp'):
+                # Conflict resolution
+                if self.get_name() < self.knowledge.get('initiator_id', ''):
+                    print(f'[{self.get_name()}] I abandon my request to help you instead !')
+                    self.knowledge['state'] = "WAITING_CONFIRM"
+                    self.knowledge['received_cfp'] = False
+                    return ("send_message", MessagePerformative.PROPOSE)
+            else:
+                # Wait until someone answers
+                return ("read_messages",)
+        
+        elif state == "WAITING_CONFIRM":
+            if self.knowledge.get('received_accept'):
+                # His proposal was accepted, he now moves towards the target posiion
+                print(f'[{self.get_name()}] I read your acceptation, I am on my way to {self.knowledge.get('target_pos')}!') # DEBUG
+                self.knowledge['state'] = "MOVING_TO_ROBOT"
+                self.knowledge['received_accept'] = False
+                return ("move", ("move", self.pos))
+            else:
+                return ("read_messages", self.pos)
+            
+        elif state == "MOVING_TO_ROBOT":
+            target = self.knowledge['target_pos']
+            if self.pos == target:
+                print(f'[{self.get_name()}] I have arrived !') # DEBUG
+                self.knowledge['state'] = "SENDING_INFORM"
+                self.knowledge['single_waste_steps'] = 0 
                 return ("drop",)
             else:
-                return ("move", (self.pos[0] - 1, self.pos[1]))
+                print(f'[{self.get_name()}] I am coming to {target} !') # DEBUG
+                dx = target[0] - self.pos[0]
+                dy = target[1] - self.pos[1]
+                
+                next_x = self.pos[0] + (1 if dx > 0 else (-1 if dx < 0 else 0))
+                next_y = self.pos[1] + (1 if dy > 0 else (-1 if dy < 0 else 0))
+                return ("move", (next_x, next_y)) 
+        
+        elif state == "SENDING_INFORM":
+            # Informs the initiator that the waste is here
+            print(f'[{self.get_name()}] I inform you that I have arrived !') # DEBUG
+            self.knowledge['state'] = "FLEEING" 
+            self.knowledge['single_waste_steps'] = 0 
+            return ("send_message", MessagePerformative.INFORM)
+        
+        elif state == "FLEEING":
+            # Message has been sent now he flees
+            print(f'[{self.get_name()}] Now I am going elsewhere !') # DEBUG
+            self.knowledge['state'] = "WANDERING"
+            self.knowledge['ignore_waste_ticks'] = 3
+            neighbors = [p for p in percepts.keys() if p != self.pos and p[0] < (self.model.width // 3)]
+            if neighbors:
+                return ("move", random.choice(neighbors))
+            return ("move", self.pos)
 
-        # 3. Collection: If yellow waste here
-        yellow_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_yellow")
-        if yellow_id is not None and len(inventory) < 2:
-            return ("pick_up", yellow_id)
-
-        # 4. Search for nearby waste in percepts
-        for pos, contents in percepts.items():
-            if "waste_yellow" in contents:
-                return ("move", pos)
-
-        # 5. Patrol Z1/Z2 border if waiting for more yellow waste if it is a patrolling agent
-        if not red_wastes and len(inventory) < 2 and self.patrol:
-            target_x = z1_end # First column of Z2
-            if self.pos[0] > target_x:
-                return ("move", (self.pos[0] - 1, self.pos[1]))
-            elif self.pos[0] < target_x:
-                return ("move", (self.pos[0] + 1, self.pos[1]))
+        elif state == "WAITING_INFORM":
+            if self.knowledge.get('received_inform'):
+                # The initiator knows that the waste is here
+                participant_id = self.knowledge.get('participant_id', '')
+                print(f'[{self.get_name()}] I acknowledge that you are here {participant_id}!') # DEBUG
+                
+                self.knowledge['single_waste_steps'] = 0
+                self.knowledge['received_inform'] = False
+                
+                if "Red" in participant_id:
+                    print(f'[{self.get_name()}] Red help ({participant_id}) is here ! I drop my waste and flee.') # DEBUG
+                    self.knowledge['state'] = "FLEEING"
+                    return ("drop",)
+                else:
+                    print(f'[{self.get_name()}] Green help ({participant_id}) is here ! Got it!') # DEBUG
+                    self.knowledge['state'] = "WANDERING"
+                    return ("move", self.pos)
             else:
-                # Patrol vertically along the border
-                adj_y = [p for p in percepts.keys() if p[0] == target_x and p != self.pos]
-                if adj_y: return ("move", random.choice(adj_y))
-
-        # 6. Default: Random exploration within Z2
-        neighbors = [p for p in percepts.keys() if z1_end <= p[0] < z2_end]
-        if neighbors: return ("move", random.choice(neighbors))
+                return ("read_messages",)
+        
         return ("move", self.pos)
+
 
 class RedAgent(RobotAgent):
     def __init__(self,model, name, patrol=False):
@@ -467,10 +592,13 @@ class RedAgent(RobotAgent):
             return ("send_message", MessagePerformative.INFORM)
         
         elif state == "WAITING_WASTE":
-            # 2b. Collection: If green waste here
-            green_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_green")
-            print(f'[{self.get_name()}] I am picking up {green_id}')
-            if green_id is not None:
+            # 2b. Collection: If green or yellow waste here
+            waste_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_green")
+            if waste_id is None:
+                waste_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_yellow")
+            
+            if waste_id is not None:
+                print(f'[{self.get_name()}] I found the dropped waste, I am picking up {waste_id}!')
                 self.knowledge['state'] = "WANDERING"
-                return ("pick_up", green_id)
+                return ("pick_up", waste_id)
             return ("move", self.pos)
