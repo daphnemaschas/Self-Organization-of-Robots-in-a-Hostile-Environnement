@@ -218,8 +218,6 @@ class RobotMission(mesa.Model):
                     # Sends a cry for help
                     content = {"pos": agent.pos, "waste_type": agent.color}
                     target_color = action[2]
-                    print(f"DEBUG: target_color {target_color}")
-
                     for other in self.agents:
                         if hasattr(other, "get_name") and hasattr(other, "color"): # isinstance(other, type(agent)) and
                             if other.get_name() != agent.get_name() and other.color == target_color:

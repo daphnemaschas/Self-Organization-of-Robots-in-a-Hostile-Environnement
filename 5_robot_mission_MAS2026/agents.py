@@ -151,6 +151,12 @@ class GreenAgent(RobotAgent):
                 else:
                     # Should not happen for GreenAgent, but move West if it does
                     return ("move", (self.pos[0] - 1, self.pos[1]))
+            
+            if self.knowledge.get('ignore_waste_ticks', 0) > 0:
+                self.knowledge['ignore_waste_ticks'] -= 1
+                neighbors = [p for p in percepts.keys() if p[0] < (self.model.width // 3)]
+                if neighbors: return ("move", random.choice(neighbors))
+                return ("move", self.pos)
 
             # 3. If green waste here -> Pick up
             green_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_green")
@@ -176,7 +182,7 @@ class GreenAgent(RobotAgent):
             if self.knowledge.get('received_propose', False):
                 # A red agent answered his cry for help, accept his proposal
                 print(f'[{self.get_name()}] Please red agent come I am waiting for you !') # DEBUG
-                self.knowledge['state'] = "WAITING_CONFIRM"
+                self.knowledge['state'] = "WAITING_INFORM"
                 self.knowledge['received_propose'] = False
                 return ("send_message", MessagePerformative.ACCEPT_PROPOSAL)
             else:
@@ -245,6 +251,7 @@ class GreenAgent(RobotAgent):
             # Message has been sent now he flees
             print(f'[{self.get_name()}] Now I am going elsewhere !') # DEBUG
             self.knowledge['state'] = "WANDERING"
+            self.knowledge['ignore_waste_ticks'] = 3
             neighbors = [p for p in percepts.keys() if p != self.pos and p[0] < (self.model.width // 3)]
             if neighbors:
                 return ("move", random.choice(neighbors))
@@ -253,11 +260,20 @@ class GreenAgent(RobotAgent):
         elif state == "WAITING_INFORM":
             if self.knowledge.get('received_inform'):
                 # The initiator knows that the waste is here
-                print(f'[{self.get_name()}] I acknowledge that you are here !') # DEBUG
-                self.knowledge['state'] = "WANDERING"
+                participant_id = self.knowledge.get('participant_id', '')
+                print(f'[{self.get_name()}] I acknowledge that you are here {participant_id}!') # DEBUG
+                
                 self.knowledge['single_waste_steps'] = 0
                 self.knowledge['received_inform'] = False
-                return ("move", self.pos)
+                
+                if "Red" in participant_id:
+                    print(f'[{self.get_name()}] Red help ({participant_id}) is here ! I drop my waste and flee.') # DEBUG
+                    self.knowledge['state'] = "FLEEING"
+                    return ("drop",)
+                else:
+                    print(f'[{self.get_name()}] Green help ({participant_id}) is here ! Got it!') # DEBUG
+                    self.knowledge['state'] = "WANDERING"
+                    return ("move", self.pos)
             else:
                 return ("read_messages",)
         
@@ -342,13 +358,13 @@ class RedAgent(RobotAgent):
 
         if state == "WANDERING":
             # 0. If there is no wastes left
-            if total_wastes == 0:
+            if total_wastes == 0 and not inventory:
                 self.knowledge['state'] = "READING_MAILBOX"
                 return ("read_messages",)
 
             # 1. Disposal Logic
-            red_wastes = [w for w in inventory if w.waste_type == "red"]
-            if red_wastes:
+            wastes = [w for w in inventory]
+            if wastes:
                 # Check if disposal zone is in percepts (Highest priority)
                 for pos, contents in percepts.items():
                     if "type_WasteDisposalZone" in contents:
@@ -427,14 +443,23 @@ class RedAgent(RobotAgent):
         elif state == "MOVING_TO_ROBOT":
             target = self.knowledge.get('target_pos')
             if self.pos == target:
-                print(f'[{self.get_name()}] I am coming !')
+                print(f'[{self.get_name()}] I am here!')
                 self.knowledge['state'] = "SENDING_INFORM"
                 return ("move", self.pos)
             else:
-                print(f'[{self.get_name()}] En route vers {target} !')
+                print(f'[{self.get_name()}] I am coming towards {target}!')
                 return ("move", target)
                 
         elif state == "SENDING_INFORM":
-            print(f'[{self.get_name()}] I have arrived !')
-            self.knowledge['state'] = "READING_MAILBOX"
-            return ("send_message", MessagePerformative.INFORM, "red")
+            print(f'[{self.get_name()}] I have arrived!')
+            self.knowledge['state'] = "WAITING_GREEN"
+            return ("send_message", MessagePerformative.INFORM)
+        
+        elif state == "WAITING_GREEN":
+            # 2b. Collection: If green waste here
+            green_id = self.get_pos_id(percepts, self.pos, "Waste", "waste_green")
+            print(f'[{self.get_name()}] I am picking up {green_id}')
+            if green_id is not None:
+                self.knowledge['state'] = "WANDERING"
+                return ("pick_up", green_id)
+            return ("move", self.pos)
