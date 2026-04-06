@@ -226,19 +226,25 @@ class GreenAgent(RobotAgent):
                 print(f'[{self.get_name()}] I read your acceptation, I am on my way to {self.knowledge.get('target_pos')}!') # DEBUG
                 self.knowledge['state'] = "MOVING_TO_ROBOT"
                 self.knowledge['received_accept'] = False
-                return ("move", self.knowledge.get('target_pos', self.pos)) # TODO ?
+                return ("move", ("move", self.pos))
             else:
                 return ("read_messages", self.pos)
             
         elif state == "MOVING_TO_ROBOT":
-            if self.pos == self.knowledge.get('target_pos'):
+            target = self.knowledge['target_pos']
+            if self.pos == target:
                 print(f'[{self.get_name()}] I have arrived !') # DEBUG
                 self.knowledge['state'] = "SENDING_INFORM"
                 self.knowledge['single_waste_steps'] = 0 
                 return ("drop",)
             else:
-                print(f'[{self.get_name()}] I am coming to {self.knowledge['target_pos']} !') # DEBUG
-                return ("move", self.knowledge['target_pos']) 
+                print(f'[{self.get_name()}] I am coming to {target} !') # DEBUG
+                dx = target[0] - self.pos[0]
+                dy = target[1] - self.pos[1]
+                
+                next_x = self.pos[0] + (1 if dx > 0 else (-1 if dx < 0 else 0))
+                next_y = self.pos[1] + (1 if dy > 0 else (-1 if dy < 0 else 0))
+                return ("move", (next_x, next_y)) 
         
         elif state == "SENDING_INFORM":
             # Informs the initiator that the waste is here
@@ -436,7 +442,7 @@ class RedAgent(RobotAgent):
                 print(f'[{self.get_name()}] I read your acceptation, I am on my way to {self.knowledge.get('target_pos')}!') # DEBUG
                 self.knowledge['state'] = "MOVING_TO_ROBOT"
                 self.knowledge['received_accept'] = False
-                return ("move", self.knowledge.get('target_pos', self.pos)) # TODO ?
+                return ("move", self.pos)
             else:
                 return ("read_messages", self.pos)
         
@@ -448,7 +454,12 @@ class RedAgent(RobotAgent):
                 return ("move", self.pos)
             else:
                 print(f'[{self.get_name()}] I am coming towards {target}!')
-                return ("move", target)
+                dx = target[0] - self.pos[0]
+                dy = target[1] - self.pos[1]
+                
+                next_x = self.pos[0] + (1 if dx > 0 else (-1 if dx < 0 else 0))
+                next_y = self.pos[1] + (1 if dy > 0 else (-1 if dy < 0 else 0))
+                return ("move", (next_x, next_y)) 
                 
         elif state == "SENDING_INFORM":
             print(f'[{self.get_name()}] I have arrived!')
