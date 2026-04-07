@@ -24,7 +24,8 @@ class RobotAgent(CommunicatingAgent):
             'single_waste_steps':0,
             'waiting_for_response': False,
             'state': 'WANDERING',
-            'visited': {}
+            'visited': {},
+            'reading_steps':0
         }
         self.n_steps = 10
     
@@ -141,14 +142,10 @@ class GreenAgent(RobotAgent):
             else:
                 self.knowledge['single_waste_steps'] = 0
             
-            # 0. If there is no wastes on the field and it has 1 waste -> calls red
-            if total_wastes == 0 and len(green_wastes) == 1:
-                print(f'[{self.get_name()}] Hey Red ! I need help') # DEBUG
-                self.knowledge['state'] = "WAITING_FOR_RED"
-                return ("send_message", MessagePerformative.CFP, "red")
-            
             # 0. If single_waste_steps >= n_steps
-            if self.knowledge['single_waste_steps'] >= self.n_steps:
+            if self.knowledge['single_waste_steps'] >= self.n_steps or (total_wastes == 0 and len(green_wastes) == 1):
+                if (total_wastes == 0 and len(green_wastes) == 1):
+                    self.knowledge['call_red'] = True
                 self.knowledge['state'] = "READING_MAILBOX"
                 return ("read_messages",)
     
@@ -213,12 +210,19 @@ class GreenAgent(RobotAgent):
                 print(f'[{self.get_name()}] I can help you !') # DEBUG
                 self.knowledge['state'] = "WAITING_CONFIRM"
                 self.knowledge['received_cfp'] = False
+                self.knowledge['call_red'] = False
                 return ("send_message", MessagePerformative.PROPOSE)
             else:
                 # No one asked for help, he sends a message saying he needs help
-                print(f'[{self.get_name()}] Hey ! I need help') # DEBUG
-                self.knowledge['state'] = "WAITING_ACCEPT"
-                return ("send_message", MessagePerformative.CFP, "green")
+                if self.knowledge.get('call_red', False):
+                    print(f'[{self.get_name()}] Hey Red ! I need help') # DEBUG
+                    self.knowledge['state'] = "WAITING_FOR_RED"
+                    self.knowledge['call_red'] = False
+                    return ("send_message", MessagePerformative.CFP, "red")
+                else: 
+                    print(f'[{self.get_name()}] Hey ! I need help') # DEBUG
+                    self.knowledge['state'] = "WAITING_ACCEPT"
+                    return ("send_message", MessagePerformative.CFP, "green")
         
         elif state == "WAITING_ACCEPT":
             if self.knowledge.get('received_propose'):
@@ -234,6 +238,10 @@ class GreenAgent(RobotAgent):
                     self.knowledge['state'] = "WAITING_CONFIRM"
                     self.knowledge['received_cfp'] = False
                     return ("send_message", MessagePerformative.PROPOSE)
+            elif total_wastes == 0:
+                self.knowledge['call_red'] = True
+                self.knowledge['state'] = "READING_MAILBOX"
+                return ("read_messages",)
             else:
                 # Wait until someone answers
                 return ("read_messages",)
@@ -328,14 +336,10 @@ class YellowAgent(RobotAgent):
             else:
                 self.knowledge['single_waste_steps'] = 0
             
-            # 0. If there is no wastes on the field and it has 1 waste -> calls red
-            if total_wastes == 0 and len(yellow_wastes) == 1:
-                print(f'[{self.get_name()}] Hey Red ! I need help') # DEBUG
-                self.knowledge['state'] = "WAITING_FOR_RED"
-                return ("send_message", MessagePerformative.CFP, "red")
-            
             # 0. If single_waste_steps >= n_steps
-            if self.knowledge['single_waste_steps'] >= self.n_steps:
+            if self.knowledge['single_waste_steps'] >= self.n_steps or (total_wastes == 0 and len(yellow_wastes) == 1):
+                if (total_wastes == 0 and len(yellow_wastes) == 1):
+                    self.knowledge['call_red'] = True
                 self.knowledge['state'] = "READING_MAILBOX"
                 return ("read_messages",)
     
@@ -399,12 +403,19 @@ class YellowAgent(RobotAgent):
                 print(f'[{self.get_name()}] I can help you !') # DEBUG
                 self.knowledge['state'] = "WAITING_CONFIRM"
                 self.knowledge['received_cfp'] = False
+                self.knowledge['call_red'] = False
                 return ("send_message", MessagePerformative.PROPOSE)
             else:
                 # No one asked for help, he sends a message saying he needs help
-                print(f'[{self.get_name()}] Hey ! I need help') # DEBUG
-                self.knowledge['state'] = "WAITING_ACCEPT"
-                return ("send_message", MessagePerformative.CFP, "yellow")
+                if self.knowledge.get('call_red', False):
+                    print(f'[{self.get_name()}] Hey Red ! I need help') # DEBUG
+                    self.knowledge['state'] = "WAITING_FOR_RED"
+                    self.knowledge['call_red'] = False
+                    return ("send_message", MessagePerformative.CFP, "red")
+                else: 
+                    print(f'[{self.get_name()}] Hey ! I need help') # DEBUG
+                    self.knowledge['state'] = "WAITING_ACCEPT"
+                    return ("send_message", MessagePerformative.CFP, "yellow")
         
         elif state == "WAITING_ACCEPT":
             if self.knowledge.get('received_propose'):
@@ -420,6 +431,10 @@ class YellowAgent(RobotAgent):
                     self.knowledge['state'] = "WAITING_CONFIRM"
                     self.knowledge['received_cfp'] = False
                     return ("send_message", MessagePerformative.PROPOSE)
+            elif total_wastes == 0:
+                self.knowledge['call_red'] = True
+                self.knowledge['state'] = "READING_MAILBOX"
+                return ("read_messages",)
             else:
                 # Wait until someone answers
                 return ("read_messages",)
@@ -575,6 +590,12 @@ class RedAgent(RobotAgent):
                 self.knowledge['state'] = "WAITING_CONFIRM"
                 self.knowledge['received_cfp'] = False
                 return ("send_message", MessagePerformative.PROPOSE)
+            elif total_wastes != 0 or self.knowledge.get('reading_steps') > self.n_steps:
+                self.knowledge['state'] = "WANDERING"
+                # Random Exploration within Z3
+                neighbors = [p for p in percepts.keys() if p[0] >= z2_end]
+                if neighbors: return ("move", self.choose_next_pos(neighbors))
+
             else:
                 return ("read_messages",)
         
