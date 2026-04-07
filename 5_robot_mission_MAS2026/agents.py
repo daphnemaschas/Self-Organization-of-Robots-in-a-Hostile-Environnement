@@ -48,7 +48,7 @@ class RobotAgent(CommunicatingAgent):
         
         content = msg.get_content()
         if isinstance(content, dict) and 'pos' in content:
-            self.knowledge['target_pos'] = content['pos']
+            self.knowledge['target_pos'] = tuple(int(c) for c in content['pos'])
 
     def _handle_propose(self, msg):
         self.knowledge['received_propose'] = True
@@ -227,9 +227,9 @@ class GreenAgent(RobotAgent):
                 print(f'[{self.get_name()}] I read your acceptation, I am on my way to {self.knowledge.get('target_pos')}!') # DEBUG
                 self.knowledge['state'] = "MOVING_TO_ROBOT"
                 self.knowledge['received_accept'] = False
-                return ("move", ("move", self.pos))
+                return ("move", self.pos)
             else:
-                return ("read_messages", self.pos)
+                return ("read_messages",)
             
         elif state == "MOVING_TO_ROBOT":
             target = self.knowledge['target_pos']
@@ -413,9 +413,9 @@ class YellowAgent(RobotAgent):
                 print(f'[{self.get_name()}] I read your acceptation, I am on my way to {self.knowledge.get('target_pos')}!') # DEBUG
                 self.knowledge['state'] = "MOVING_TO_ROBOT"
                 self.knowledge['received_accept'] = False
-                return ("move", ("move", self.pos))
+                return ("move", self.pos)
             else:
-                return ("read_messages", self.pos)
+                return ("read_messages",)
             
         elif state == "MOVING_TO_ROBOT":
             target = self.knowledge['target_pos']
@@ -569,7 +569,7 @@ class RedAgent(RobotAgent):
                 self.knowledge['received_accept'] = False
                 return ("move", self.pos)
             else:
-                return ("read_messages", self.pos)
+                return ("read_messages",)
         
         elif state == "MOVING_TO_ROBOT":
             target = self.knowledge.get('target_pos')
