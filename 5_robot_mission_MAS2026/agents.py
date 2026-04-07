@@ -387,7 +387,7 @@ class YellowAgent(RobotAgent):
                 # No one asked for help, he sends a message saying he needs help
                 print(f'[{self.get_name()}] Hey ! I need help') # DEBUG
                 self.knowledge['state'] = "WAITING_ACCEPT"
-                return ("send_message", MessagePerformative.CFP, "green")
+                return ("send_message", MessagePerformative.CFP, "yellow")
         
         elif state == "WAITING_ACCEPT":
             if self.knowledge.get('received_propose'):
