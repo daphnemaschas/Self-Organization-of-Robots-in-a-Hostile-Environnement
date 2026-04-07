@@ -24,13 +24,14 @@ class RobotMission(mesa.Model):
         width (int): Grid width.
         height (int): Grid height.
     """
-    def __init__(self, width=15, height=10, initial_green_waste=10, initial_yellow_waste=10, initial_red_waste=10, n_green_robots=2, n_yellow_robots=2, n_red_robots=2):
+    def __init__(self, width=15, height=10, initial_green_waste=10, initial_yellow_waste=10, initial_red_waste=10, n_green_robots=2, n_yellow_robots=2, n_red_robots=2, use_memory=False):
         super().__init__()
         self.width = width
         self.height = height
         self.n_green_robots = n_green_robots
         self.n_yellow_robots = n_yellow_robots
         self.n_red_robots = n_red_robots
+        self.use_memory = use_memory
 
         # Initialize MessageService
         self._instanciate_message_service()

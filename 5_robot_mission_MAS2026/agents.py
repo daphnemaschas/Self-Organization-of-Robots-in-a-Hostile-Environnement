@@ -23,7 +23,8 @@ class RobotAgent(CommunicatingAgent):
             'last_percepts': {},
             'single_waste_steps':0,
             'waiting_for_response': False,
-            'state': 'WANDERING'
+            'state': 'WANDERING',
+            'visited': {}
         }
         self.n_steps = 10
     
@@ -74,8 +75,24 @@ class RobotAgent(CommunicatingAgent):
         action = self.deliberate(self.knowledge)
         
         # 3. Act and update
+        if isinstance(action, tuple) and action[0] == "move":
+            self.knowledge['visited'][action[1]] = self.knowledge['visited'].get(action[1], 0) + 1
+
         new_percepts = self.model.do(self, action)
         self.knowledge['last_percepts'] = new_percepts
+
+    def choose_next_pos(self, neighbors):
+        """Helper to choose the next position based on random wandering or memory (least visited)."""
+        if not neighbors:
+            return self.pos
+        
+        if getattr(self.model, "use_memory", False):
+            # Sort neighbors by visit count (least visited first)
+            # Shuffle first to avoid always picking the same element if counts are equal
+            random.shuffle(neighbors)
+            return min(neighbors, key=lambda n: self.knowledge['visited'].get(n, 0))
+        else:
+            return random.choice(neighbors)
 
     def deliberate(self, knowledge):
         raise NotImplementedError
@@ -156,7 +173,7 @@ class GreenAgent(RobotAgent):
             if self.knowledge.get('ignore_waste_ticks', 0) > 0:
                 self.knowledge['ignore_waste_ticks'] -= 1
                 neighbors = [p for p in percepts.keys() if p[0] < (self.model.width // 3)]
-                if neighbors: return ("move", random.choice(neighbors))
+                if neighbors: return ("move", self.choose_next_pos(neighbors))
                 return ("move", self.pos)
 
             # 3. If green waste here -> Pick up
@@ -176,7 +193,7 @@ class GreenAgent(RobotAgent):
                         return ("move", pos)
                 # Stay in Z1
                 neighbors = [p for p in percepts.keys() if p[0] < (self.model.width // 3)]
-                if neighbors: return ("move", random.choice(neighbors))
+                if neighbors: return ("move", self.choose_next_pos(neighbors))
 
         # Other states: communication, waiting,...
         elif state == "WAITING_FOR_RED":
@@ -261,7 +278,7 @@ class GreenAgent(RobotAgent):
             self.knowledge['ignore_waste_ticks'] = 3
             neighbors = [p for p in percepts.keys() if p != self.pos and p[0] < (self.model.width // 3)]
             if neighbors:
-                return ("move", random.choice(neighbors))
+                return ("move", self.choose_next_pos(neighbors))
             return ("move", self.pos)
 
         elif state == "WAITING_INFORM":
@@ -342,7 +359,7 @@ class YellowAgent(RobotAgent):
             if self.knowledge.get('ignore_waste_ticks', 0) > 0:
                 self.knowledge['ignore_waste_ticks'] -= 1
                 neighbors = [p for p in percepts.keys() if z1_end <=p[0] < z2_end]
-                if neighbors: return ("move", random.choice(neighbors))
+                if neighbors: return ("move", self.choose_next_pos(neighbors))
                 return ("move", self.pos)
 
             # 3. If yellow waste here -> Pick up
@@ -362,7 +379,7 @@ class YellowAgent(RobotAgent):
                         return ("move", pos)
                 # Stay in Z2
                 neighbors = [p for p in percepts.keys() if z1_end <= p[0] < z2_end]
-                if neighbors: return ("move", random.choice(neighbors))
+                if neighbors: return ("move", self.choose_next_pos(neighbors))
 
         # Other states: communication, waiting,...
         elif state == "WAITING_FOR_RED":
@@ -445,9 +462,9 @@ class YellowAgent(RobotAgent):
             print(f'[{self.get_name()}] Now I am going elsewhere !') # DEBUG
             self.knowledge['state'] = "WANDERING"
             self.knowledge['ignore_waste_ticks'] = 3
-            neighbors = [p for p in percepts.keys() if p != self.pos and p[0] < (self.model.width // 3)]
+            neighbors = [p for p in percepts.keys() if p != self.pos and z1_end <= p[0] < z2_end]
             if neighbors:
-                return ("move", random.choice(neighbors))
+                return ("move", self.choose_next_pos(neighbors))
             return ("move", self.pos)
 
         elif state == "WAITING_INFORM":
@@ -464,7 +481,7 @@ class YellowAgent(RobotAgent):
                     self.knowledge['state'] = "FLEEING"
                     return ("drop",)
                 else:
-                    print(f'[{self.get_name()}] Green help ({participant_id}) is here ! Got it!') # DEBUG
+                    print(f'[{self.get_name()}] Yellow help ({participant_id}) is here ! Got it!') # DEBUG
                     self.knowledge['state'] = "WANDERING"
                     return ("move", self.pos)
             else:
@@ -544,11 +561,11 @@ class RedAgent(RobotAgent):
                     return ("move", (self.pos[0] + 1, self.pos[1]))
                 else:
                     adj_y = [p for p in percepts.keys() if p[0] == target_x and p != self.pos]
-                    if adj_y: return ("move", random.choice(adj_y))
+                    if adj_y: return ("move", self.choose_next_pos(adj_y))
 
             # 5. Default: Random exploration within Z3
             neighbors = [p for p in percepts.keys() if p[0] >= z2_end]
-            if neighbors: return ("move", random.choice(neighbors))
+            if neighbors: return ("move", self.choose_next_pos(neighbors))
             
             return ("move", self.pos)
     
