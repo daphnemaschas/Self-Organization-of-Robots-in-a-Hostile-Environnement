@@ -74,6 +74,7 @@ class RobotAgent(CommunicatingAgent):
         # Update memory of visited places + neighborhood
         self.knowledge['visited_places'][self.pos] = self.knowledge['visited_places'].get(self.pos, 0) + 1
 
+
         # 2. Deliberate
         action = self.deliberate(self.knowledge)
 
