@@ -442,7 +442,7 @@ class YellowAgent(RobotAgent):
         elif state == "WAITING_CONFIRM":
             if self.knowledge.get('received_accept'):
                 # His proposal was accepted, he now moves towards the target posiion
-                print(f'[{self.get_name()}] I read your acceptation, I am on my way to {self.knowledge.get('target_pos')}!') # DEBUG
+                print(f"[{self.get_name()}] I read your acceptation, I am on my way to {self.knowledge.get('target_pos')}!") # DEBUG
                 self.knowledge['state'] = "MOVING_TO_ROBOT"
                 self.knowledge['received_accept'] = False
                 return ("move", self.pos)
