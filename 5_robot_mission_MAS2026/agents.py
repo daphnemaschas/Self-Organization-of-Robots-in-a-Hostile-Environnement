@@ -589,14 +589,17 @@ class RedAgent(RobotAgent):
                 print(f'[{self.get_name()}] I can help you !') 
                 self.knowledge['state'] = "WAITING_CONFIRM"
                 self.knowledge['received_cfp'] = False
+                self.knowledge['reading_steps'] = 0
                 return ("send_message", MessagePerformative.PROPOSE)
-            elif total_wastes != 0 or self.knowledge.get('reading_steps') > self.n_steps:
+            elif total_wastes != 0 or self.knowledge.get('reading_steps', 0) > self.n_steps:
                 self.knowledge['state'] = "WANDERING"
+                self.knowledge['reading_steps'] = 0
                 # Random Exploration within Z3
                 neighbors = [p for p in percepts.keys() if p[0] >= z2_end]
                 if neighbors: return ("move", self.choose_next_pos(neighbors))
 
             else:
+                self.knowledge['reading_steps'] = self.knowledge.get('reading_steps', 0) + 1
                 return ("read_messages",)
         
         elif state == "WAITING_CONFIRM":
