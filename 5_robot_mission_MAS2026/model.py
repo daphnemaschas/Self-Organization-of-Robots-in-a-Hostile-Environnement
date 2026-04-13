@@ -111,21 +111,6 @@ class RobotMission(mesa.Model):
             self.add_robot(YellowAgent, (random.randrange(z1, z2), random.randrange(self.height)), f"YellowBot_{i}")
         for i in range(self.n_red_robots):
             self.add_robot(RedAgent, (random.randrange(z2, self.width), random.randrange(self.height)), f"RedBot_{i}")
-
-    @staticmethod
-    def count_waste(model, waste_type):
-        """Compte les déchets d'un type précis sur la grille ET dans les inventaires."""
-        count = 0
-        # In the grid
-        for obj in model.grid.coord_iter():
-            cell_content, pos = obj
-            count += len([w for w in cell_content if isinstance(w, Waste) and w.waste_type == waste_type])
-        
-        # In agent inventory
-        for agent in model.agents:
-            if hasattr(agent, 'knowledge'):
-                count += len([w for w in agent.knowledge['inventory'] if w.waste_type == waste_type])
-        return count
     
     @staticmethod
     def count_waste(model, waste_type):
