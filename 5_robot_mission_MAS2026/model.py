@@ -9,6 +9,10 @@ This module defines the RobotMission model and its central logic.
 import os
 import mesa
 import random
+
+from communication.message.Message import Message
+from communication.message.MessagePerformative import MessagePerformative
+from communication.message.MessageService import MessageService
 from agents import GreenAgent, YellowAgent, RedAgent
 from objects import RadioactivitySource, Waste, WasteDisposalZone
 
@@ -20,16 +24,20 @@ class RobotMission(mesa.Model):
         width (int): Grid width.
         height (int): Grid height.
     """
-    def __init__(self, width=15, height=10, initial_green_waste=10, initial_yellow_waste=10, initial_red_waste=10, n_green_robots=2, n_yellow_robots=2, n_red_robots=2):
+    def __init__(self, width=15, height=10, initial_green_waste=10, initial_yellow_waste=10, initial_red_waste=10, n_green_robots=2, n_yellow_robots=2, n_red_robots=2, use_memory=False):
         super().__init__()
         self.width = width
         self.height = height
         self.n_green_robots = n_green_robots
         self.n_yellow_robots = n_yellow_robots
         self.n_red_robots = n_red_robots
+        self.use_memory = use_memory
+
+        # Initialize MessageService
+        self._instanciate_message_service()
 
         self.grid = mesa.space.MultiGrid(width, height, torus=False)
-        self.message_board = [] # Step 2: Communication
+        self.message_history= []
 
         # Define zone boundaries
         z1_end = width // 3
@@ -69,10 +77,23 @@ class RobotMission(mesa.Model):
                 "Yellow_Waste": lambda m: self.count_waste(m, "yellow"),
                 "Red_Waste": lambda m: self.count_waste(m, "red"),
                 "Total_Radioactivity": self.get_total_radioactivity,
-                "Messages": lambda m: len(m.message_board)
+                "Messages": lambda m: len(m.message_history),
+                "Total on field": lambda m: self.count_waste_on_field(m)
             }
         )
 
+    def _instanciate_message_service(self):
+        """Helper to instanciate MessageService"""
+        if MessageService.get_instance() is None:
+            self.__messages_service = MessageService(self, instant_delivery=False)
+        else:
+            # Le Singleton existe déjà, mais on force la mise à jour du modèle
+            # pour Solara (grâce au "Name Mangling" Python on peut contourner les variables privées)
+            msg_service = MessageService.get_instance()
+            msg_service._MessageService__model = self
+            msg_service._MessageService__messages_to_proceed.clear()
+            self.__messages_service = msg_service
+    
     def _place_initial_wastes(self, g, y, r, z1, z2):
         """Helper to distribute initial waste."""
         for _ in range(g):
@@ -84,13 +105,13 @@ class RobotMission(mesa.Model):
 
     def _setup_robots(self, z1, z2):
         """Helper to initialize robots."""
-        for _ in range(self.n_green_robots):
-            self.add_robot(GreenAgent, (random.randrange(z1), random.randrange(self.height)))
-        for _ in range(self.n_yellow_robots):
-            self.add_robot(YellowAgent, (random.randrange(z1, z2), random.randrange(self.height)))
-        for _ in range(self.n_red_robots):
-            self.add_robot(RedAgent, (random.randrange(z2, self.width), random.randrange(self.height)))
-
+        for i in range(self.n_green_robots):
+            self.add_robot(GreenAgent, (random.randrange(z1), random.randrange(self.height)), f"GreenBot_{i}")
+        for i in range(self.n_yellow_robots):
+            self.add_robot(YellowAgent, (random.randrange(z1, z2), random.randrange(self.height)), f"YellowBot_{i}")
+        for i in range(self.n_red_robots):
+            self.add_robot(RedAgent, (random.randrange(z2, self.width), random.randrange(self.height)), f"RedBot_{i}")
+    
     @staticmethod
     def count_waste(model, waste_type):
         """Compte les déchets d'un type précis sur la grille ET dans les inventaires."""
@@ -104,6 +125,19 @@ class RobotMission(mesa.Model):
         for agent in model.agents:
             if hasattr(agent, 'knowledge'):
                 count += len([w for w in agent.knowledge['inventory'] if w.waste_type == waste_type])
+        return count
+    
+    @staticmethod
+    def count_waste_on_field(model, waste_type=None):
+        """Compte les déchets uniquement sur la grille (exclut l'inventaire des agents).
+        Si waste_type est None, compte tous les déchets, sinon filtre par type."""
+        count = 0
+        for obj in model.grid.coord_iter():
+            cell_content, pos = obj
+            if waste_type:
+                count += len([w for w in cell_content if isinstance(w, Waste) and w.waste_type == waste_type])
+            else:
+                count += len([w for w in cell_content if isinstance(w, Waste)])
         return count
 
     def get_total_radioactivity(self):
@@ -126,8 +160,8 @@ class RobotMission(mesa.Model):
                     
         return total_radio
 
-    def add_robot(self, agent_class, pos):
-        robot = agent_class(self)
+    def add_robot(self, agent_class, pos, name):
+        robot = agent_class(self, name)
         self.grid.place_agent(robot, pos)
 
     def save_data(self, filename="data/simulation_log.csv"):
@@ -141,11 +175,13 @@ class RobotMission(mesa.Model):
         print(f"Données sauvegardées dans {filename}")
 
     def step(self):
+        MessageService.get_instance().dispatch_messages()
+
         self.datacollector.collect(self)
         self.agents.shuffle_do("step")
 
-        if self.steps > 0 and self.steps % 50 == 0:
-            self.save_data(f"data/sim_step_{self.steps}.csv")
+        # if self.steps > 0 and self.steps % 50 == 0:
+        #     self.save_data(f"data/sim_step_{self.steps}.csv")
 
         total_wastes = (self.count_waste(self, "green") + 
                         self.count_waste(self, "yellow") + 
@@ -153,16 +189,51 @@ class RobotMission(mesa.Model):
         
         if total_wastes == 0:
             self.running = False
-            self.save_simulation_data("data/final_results.csv")
+            self.save_data("data/final_results.csv")
             print("Mission accomplie : tous les déchets ont été évacués.")
 
     def do(self, agent, action):
         """Processes an agent's action and returns percepts."""
         if action:
-            if action[0] == "post_message":
-                self.message_board.append(action[1])
-            elif action[0] == "read_messages":
-                pass # Already available via agent.model.message_board
+            if action[0] == "read_messages":
+                agent.handle_messages()
+            elif action[0] == "send_message":
+                performative = action[1]
+                print(performative)
+                if performative == MessagePerformative.CFP:
+                    # Sends a cry for help
+                    content = {"pos": agent.pos, "waste_type": agent.color}
+                    target_color = action[2]
+                    for other in self.agents:
+                        if hasattr(other, "get_name") and hasattr(other, "color"): # isinstance(other, type(agent)) and
+                            if other.get_name() != agent.get_name() and other.color == target_color:
+                                msg = Message(agent.get_name(), other.get_name(), performative, content)
+                                agent.send_message(msg)
+                                self.message_history.append(str(msg))
+
+                elif performative == MessagePerformative.PROPOSE:
+                    # Answers a demand for help
+                    receiver = agent.knowledge.get('initiator_id')
+                    if receiver:
+                        msg = Message(agent.get_name(), receiver, performative, None)
+                        agent.send_message(msg)
+                        self.message_history.append(str(msg))
+
+                elif performative == MessagePerformative.ACCEPT_PROPOSAL:
+                    # Accepts the proposal of one participant
+                    receiver = agent.knowledge.get('participant_id')
+                    if receiver:
+                        msg = Message(agent.get_name(), receiver, performative, None)
+                        agent.send_message(msg)
+                        self.message_history.append(str(msg))
+                
+                elif performative == MessagePerformative.INFORM:
+                        # Informs the initiator that he is here
+                        receiver = agent.knowledge.get('initiator_id')
+                        if receiver:
+                            msg = Message(agent.get_name(), receiver, performative, None)
+                            agent.send_message(msg)
+                            self.message_history.append(str(msg))
             else:
                 self.execute_action(agent, action)
         
@@ -230,7 +301,7 @@ class RobotMission(mesa.Model):
         elif isinstance(agent, YellowAgent):
             return waste.waste_type == "yellow" and len(agent.knowledge['inventory']) < 2
         elif isinstance(agent, RedAgent):
-            return waste.waste_type == "red" and len(agent.knowledge['inventory']) < 1
+            return len(agent.knowledge['inventory']) < 1
         return False
 
     def can_transform(self, agent):

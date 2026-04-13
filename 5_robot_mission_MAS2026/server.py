@@ -6,10 +6,11 @@ Members: Maxence Rossignol, Antoine Yezou, Daphné Maschas
 This module defines the visualization for the RobotMission simulation using Mesa 3.x (Solara).
 Following EXACTLY the pattern from the Wolf-Sheep example in Mesa 3.5.1.
 """
-
+import solara
 import mesa
 from mesa.visualization import SolaraViz, SpaceRenderer
 from mesa.visualization.components import AgentPortrayalStyle, make_plot_component
+from mesa.visualization.utils import update_counter
 from model import RobotMission
 from agents import GreenAgent, YellowAgent, RedAgent
 from objects import Waste, RadioactivitySource, WasteDisposalZone
@@ -53,6 +54,26 @@ def agent_portrayal(agent):
         portrayal.update(("alpha", 0))
 
     return portrayal
+
+@solara.component
+def MessageBoardComponent(model):
+    """Composant Solara personnalisé pour afficher l'historique des messages."""
+    update_counter.get()
+    
+    solara.Markdown("### Historique des Communications")
+    
+    messages = getattr(model, 'message_history', [])
+    msg_count = len(messages)
+    
+    if msg_count == 0:
+        solara.Info("Aucun message reçu pour le moment.")
+        return
+    
+    recent_messages = messages[-15:]
+    messages_text = "\n".join([f"- {msg_str}" for msg_str in reversed(recent_messages)])
+    
+    with solara.Column(style={"max-height": "300px", "overflow-y": "auto", "background-color": "#f8f9fa", "padding": "10px", "border-radius": "5px"}):
+        solara.Markdown(messages_text)
 
 # 1. Setup Model and Parameters
 model_params = {
@@ -105,11 +126,16 @@ model_params = {
         "min": 0,
         "max": 50,
         "step": 1,
+    },
+    "use_memory": {
+        "type": "Checkbox",
+        "value": False,
+        "label": "Use Memory for Movement",
     }
 }
 
 # 2. Create the model instance
-model = RobotMission(width=15, height=10, initial_green_waste=15, n_green_robots=2, n_yellow_robots=2, n_red_robots=2)
+model = RobotMission(width=15, height=10, initial_green_waste=15, n_green_robots=2, n_yellow_robots=2, n_red_robots=2, use_memory=False)
 
 # 3. Setup the SpaceRenderer following the Wolf-Sheep pattern exactly
 renderer = SpaceRenderer(
@@ -118,7 +144,7 @@ renderer = SpaceRenderer(
 ).setup_agents(agent_portrayal)
 
 # Added following the wolf_sheep example
-renderer.draw_agents()
+renderer.render()
 
 # Add a graph for waste stocks
 waste_plot = make_plot_component({
@@ -137,6 +163,6 @@ page = SolaraViz(
     renderer,
     model_params=model_params,
     name="Robot Mission MAS 2026",
-    components=[waste_plot, radio_plot]
+    components=[waste_plot, radio_plot, MessageBoardComponent]
 )
 
